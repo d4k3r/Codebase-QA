@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Local configuration and generated files
+.env
+*.log
+
+# Editors and OS files
+.vscode/
+.idea/
+.DS_Store
+
+# Local PostgreSQL data (managed by Docker Compose)
+postgres_data/
