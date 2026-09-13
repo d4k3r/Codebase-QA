@@ -59,3 +59,47 @@ def test_reports_invalid_python_source(tmp_path: Path) -> None:
 
     with pytest.raises(SourceFileError, match="Invalid Python syntax"):
         chunk_python_file(invalid_file, tmp_path, "invalid-repo")
+
+
+def test_decorated_symbols_include_multiline_decorators(tmp_path: Path) -> None:
+    source = (
+        "@route(\n"
+        "    '/items',\n"
+        ")\n"
+        "def get_items():\n"
+        "    return []\n"
+        "\n"
+        "@dataclass(\n"
+        "    frozen=True,\n"
+        ")\n"
+        "class Item:\n"
+        "    value: int\n"
+        "\n"
+        "    def method(self):\n"
+        "        return self.value\n"
+    )
+    path = tmp_path / "decorated.py"
+    path.write_text(source, encoding="utf-8")
+
+    chunks = chunk_python_file(path, tmp_path, "decorated-repo")
+
+    assert [(chunk.symbol_type, chunk.symbol_name) for chunk in chunks] == [
+        ("function", "get_items"),
+        ("class", "Item"),
+    ]
+    assert (chunks[0].start_line, chunks[0].end_line) == (1, 5)
+    assert chunks[0].content == "".join(source.splitlines(keepends=True)[:5])
+    assert (chunks[1].start_line, chunks[1].end_line) == (7, 14)
+    assert chunks[1].content.startswith("@dataclass(\n    frozen=True,\n)\nclass Item:")
+    assert "def method" in chunks[1].content
+
+
+def test_parenthesised_decorator_chunk_starts_at_opening_line(tmp_path: Path) -> None:
+    source = "@(\n    decorator\n)\ndef decorated():\n    return 1\n"
+    path = tmp_path / "parenthesised.py"
+    path.write_text(source, encoding="utf-8")
+
+    [chunk] = chunk_python_file(path, tmp_path, "decorated-repo")
+
+    assert (chunk.start_line, chunk.end_line) == (1, 5)
+    assert chunk.content == source

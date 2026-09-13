@@ -1,12 +1,18 @@
 """Create exact source chunks for top-level Python symbols using the AST."""
 
 import ast
+import io
+import tokenize
 from dataclasses import dataclass
 from pathlib import Path
 
 
 class SourceFileError(ValueError):
     """Raised when a Python source file cannot be read or parsed."""
+
+
+class SourceReadError(SourceFileError):
+    """Raised when a Python source file cannot be read safely."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +36,43 @@ def _symbol_type(node: ast.AST) -> str:
     return "class"
 
 
+def _decorator_start_line(source: str, decorator: ast.expr) -> int:
+    """Find the decorator's ``@`` line, including parenthesised expressions."""
+
+    tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+    target_line = decorator.lineno
+    target_column = decorator.col_offset
+    target_index = next(
+        (
+            index
+            for index, token in enumerate(tokens)
+            if token.start[0] == target_line
+            and token.start[1] >= target_column
+            and token.type not in {tokenize.INDENT, tokenize.DEDENT, tokenize.NL}
+        ),
+        None,
+    )
+    if target_index is None:
+        return target_line
+
+    for token in reversed(tokens[: target_index + 1]):
+        if token.type == tokenize.OP and token.string == "@":
+            return token.start[0]
+    return target_line
+
+
+def _start_line(
+    source: str,
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+) -> int:
+    """Return the first source line belonging to a symbol, including decorators."""
+
+    decorator_lines = [
+        _decorator_start_line(source, decorator) for decorator in node.decorator_list
+    ]
+    return min([node.lineno, *decorator_lines])
+
+
 def chunk_python_file(
     file_path: str | Path,
     repository_root: str | Path,
@@ -47,7 +90,9 @@ def chunk_python_file(
     try:
         source = path.read_text(encoding="utf-8")
     except (OSError, UnicodeError) as exc:
-        raise SourceFileError(f"Could not read Python source file {relative_path}: {exc}") from exc
+        raise SourceReadError(
+            f"Could not read Python source file {relative_path}: {exc}"
+        ) from exc
 
     try:
         tree = ast.parse(source, filename=relative_path)
@@ -73,9 +118,11 @@ def chunk_python_file(
                 file_path=relative_path,
                 symbol_type=_symbol_type(node),
                 symbol_name=node.name,
-                start_line=node.lineno,
+                start_line=_start_line(source, node),
                 end_line=node.end_lineno,
-                content="".join(source_lines[node.lineno - 1 : node.end_lineno]),
+                content="".join(
+                    source_lines[_start_line(source, node) - 1 : node.end_lineno]
+                ),
             )
         )
 

@@ -1,5 +1,6 @@
 """Discover Python source files in a local repository."""
 
+import os
 from pathlib import Path
 
 
@@ -10,6 +11,10 @@ EXCLUDED_DIRECTORIES = frozenset(
 
 class RepositoryPathError(ValueError):
     """Raised when a local repository path cannot be indexed."""
+
+
+class RepositoryReadError(RepositoryPathError):
+    """Raised when repository traversal cannot safely complete."""
 
 
 def resolve_repository_root(repository_path: str | Path) -> Path:
@@ -29,14 +34,29 @@ def discover_python_files(repository_path: str | Path) -> list[Path]:
     root = resolve_repository_root(repository_path)
     discovered: list[Path] = []
 
-    try:
-        for path in root.rglob("*.py"):
-            relative_path = path.relative_to(root)
-            if any(part in EXCLUDED_DIRECTORIES for part in relative_path.parts[:-1]):
-                continue
-            if path.is_file():
-                discovered.append(path)
-    except OSError as exc:
-        raise RepositoryPathError(f"Could not read repository directory {root}: {exc}") from exc
+    def read_entries(directory: Path) -> list[os.DirEntry[str]]:
+        try:
+            with os.scandir(directory) as entries:
+                return sorted(entries, key=lambda entry: entry.name)
+        except OSError as exc:
+            raise RepositoryReadError(
+                f"Could not read repository directory {directory}: {exc}"
+            ) from exc
+
+    def visit(directory: Path) -> None:
+        for entry in read_entries(directory):
+            try:
+                is_directory = entry.is_dir(follow_symlinks=False)
+                if is_directory:
+                    if entry.name not in EXCLUDED_DIRECTORIES:
+                        visit(Path(entry.path))
+                elif entry.name.endswith(".py") and entry.is_file(follow_symlinks=False):
+                    discovered.append(Path(entry.path))
+            except OSError as exc:
+                raise RepositoryReadError(
+                    f"Could not classify repository entry {entry.path}: {exc}"
+                ) from exc
+
+    visit(root)
 
     return sorted(discovered, key=lambda path: path.relative_to(root).as_posix())

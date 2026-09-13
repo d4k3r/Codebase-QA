@@ -9,8 +9,11 @@ from app.api import routes
 from app.database import get_db
 from app.main import app
 from app.services.retrieval import RetrievedChunk
-from app.services.rag import LLMConfigurationError
-from app.services.storage import IndexingStats
+from app.services.rag import LLMConfigurationError, RAGGenerationError
+from app.services.retrieval import RetrievalError
+from app.services.chunker import SourceReadError
+from app.services.repository_loader import RepositoryReadError
+from app.services.storage import IndexingStats, StorageError
 
 
 def _fake_db() -> Any:
@@ -91,3 +94,94 @@ def test_ask_reports_missing_llm_configuration(
 
     assert response.status_code == 503
     assert "LLM_API_KEY" in response.json()["detail"]
+
+
+def test_index_hides_internal_failure_details(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setattr(
+        routes,
+        "index_repository",
+        lambda *args: (_ for _ in ()).throw(StorageError("password=synthetic-secret")),
+    )
+
+    response = client.post(
+        "/repositories/index",
+        json={"repository_path": "/tmp/example", "repository_name": "tiny-repo"},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Repository indexing failed."
+    assert "synthetic-secret" not in response.text
+    assert "synthetic-secret" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("error", "detail"),
+    [
+        (
+            RepositoryReadError("/sensitive/repository synthetic-permission-detail"),
+            "Could not safely read the repository directories.",
+        ),
+        (
+            SourceReadError("/sensitive/source.py synthetic-read-detail"),
+            "Could not safely read the repository source files.",
+        ),
+    ],
+)
+def test_index_hides_filesystem_diagnostics(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    error: Exception,
+    detail: str,
+) -> None:
+    monkeypatch.setattr(
+        routes,
+        "index_repository",
+        lambda *args: (_ for _ in ()).throw(error),
+    )
+
+    response = client.post(
+        "/repositories/index",
+        json={"repository_path": "/tmp/example", "repository_name": "tiny-repo"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == detail
+    assert "synthetic" not in response.text
+
+
+def test_search_hides_internal_failure_details(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        routes,
+        "search_code",
+        lambda *args: (_ for _ in ()).throw(RetrievalError("connection secret=synthetic")),
+    )
+
+    response = client.post("/search", json={"query": "anything"})
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Semantic search failed."
+    assert "synthetic" not in response.text
+
+
+def test_ask_hides_internal_failure_details(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        routes,
+        "answer_question",
+        lambda *args: (_ for _ in ()).throw(RAGGenerationError("provider secret=synthetic")),
+    )
+
+    response = client.post("/ask", json={"question": "anything"})
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "LLM generation failed."
+    assert "synthetic" not in response.text

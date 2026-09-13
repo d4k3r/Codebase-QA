@@ -1,5 +1,6 @@
 """Thin HTTP routes for health, indexing, retrieval, and RAG."""
 
+import logging
 from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -16,19 +17,26 @@ from app.schemas import (
     SearchRequest,
     SearchResponse,
 )
-from app.services.chunker import SourceFileError
+from app.services.chunker import SourceFileError, SourceReadError
 from app.services.embeddings import EmbeddingError
 from app.services.rag import (
     LLMConfigurationError,
     RAGGenerationError,
     answer_question,
 )
-from app.services.repository_loader import RepositoryPathError
+from app.services.repository_loader import RepositoryPathError, RepositoryReadError
 from app.services.retrieval import RetrievalError, RetrievedChunk, search_code
 from app.services.storage import StorageError, index_repository
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _log_internal_failure(message: str, error: Exception) -> None:
+    """Log failure location/type without serialising exception details."""
+
+    logger.error("%s (%s)", message, type(error).__name__)
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -53,10 +61,21 @@ def index_local_repository(
 ) -> IndexRepositoryResponse:
     try:
         result = index_repository(db, request.repository_path, request.repository_name)
+    except RepositoryReadError:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not safely read the repository directories.",
+        )
+    except SourceReadError:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not safely read the repository source files.",
+        )
     except (RepositoryPathError, SourceFileError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except (EmbeddingError, StorageError) as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        _log_internal_failure("Repository indexing failed", exc)
+        raise HTTPException(status_code=500, detail="Repository indexing failed.") from exc
     return IndexRepositoryResponse(**asdict(result))
 
 
@@ -70,7 +89,8 @@ def semantic_search(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except (EmbeddingError, RetrievalError) as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        _log_internal_failure("Semantic search failed", exc)
+        raise HTTPException(status_code=500, detail="Semantic search failed.") from exc
     return SearchResponse(results=[_chunk_response(chunk) for chunk in results])
 
 
@@ -86,9 +106,11 @@ def ask_repository(
     except LLMConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except RAGGenerationError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        _log_internal_failure("LLM generation failed", exc)
+        raise HTTPException(status_code=502, detail="LLM generation failed.") from exc
     except (EmbeddingError, RetrievalError) as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        _log_internal_failure("RAG retrieval failed", exc)
+        raise HTTPException(status_code=500, detail="RAG retrieval failed.") from exc
     return AskResponse(
         answer=result.answer,
         sources=[_chunk_response(chunk) for chunk in result.sources],

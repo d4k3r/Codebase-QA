@@ -3,10 +3,11 @@
 from dataclasses import dataclass
 
 from openai import OpenAI, OpenAIError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
-from app.services.retrieval import RetrievedChunk, search_code
+from app.services.retrieval import RetrievalError, RetrievedChunk, search_code
 
 
 MAX_CONTEXT_CHARACTERS = 12_000
@@ -30,10 +31,19 @@ class RAGResult:
     sources: list[RetrievedChunk]
 
 
-def build_context(chunks: list[RetrievedChunk]) -> str:
-    """Build a readable context block with a simple character bound."""
+@dataclass(frozen=True, slots=True)
+class ContextBuild:
+    """The exact complete chunks included in the model context."""
+
+    text: str
+    included_chunks: list[RetrievedChunk]
+
+
+def build_context(chunks: list[RetrievedChunk]) -> ContextBuild:
+    """Build bounded context without partially supplying any source chunk."""
 
     sections: list[str] = []
+    included_chunks: list[RetrievedChunk] = []
     used = 0
 
     for chunk in chunks:
@@ -43,16 +53,18 @@ def build_context(chunks: list[RetrievedChunk]) -> str:
             f"[{chunk.symbol_type} {symbol}, lines {chunk.start_line}-{chunk.end_line}] ---\n"
         )
         separator = "\n\n" if sections else ""
-        available = MAX_CONTEXT_CHARACTERS - used - len(separator) - len(header)
-        if available <= 0:
-            break
-        content = chunk.content[:available]
-        sections.append(header + content)
-        used += len(separator) + len(header) + len(content)
-        if used == MAX_CONTEXT_CHARACTERS:
-            break
+        section = header + chunk.content
+        required = len(separator) + len(section)
+        if used + required > MAX_CONTEXT_CHARACTERS:
+            continue
+        sections.append(section)
+        included_chunks.append(chunk)
+        used += required
 
-    return "\n\n".join(sections) if sections else "No repository context was retrieved."
+    return ContextBuild(
+        text="\n\n".join(sections) if sections else "No repository context was retrieved.",
+        included_chunks=included_chunks,
+    )
 
 
 def _required_llm_config(settings: Settings) -> tuple[str, str]:
@@ -71,7 +83,11 @@ def _required_llm_config(settings: Settings) -> tuple[str, str]:
 
 
 def _create_client(settings: Settings, api_key: str) -> OpenAI:
-    options: dict[str, str] = {"api_key": api_key}
+    options: dict[str, object] = {
+        "api_key": api_key,
+        "timeout": settings.llm_timeout_seconds,
+        "max_retries": settings.llm_max_retries,
+    }
     if settings.llm_base_url and settings.llm_base_url.strip():
         options["base_url"] = settings.llm_base_url.strip()
     return OpenAI(**options)
@@ -89,12 +105,22 @@ def answer_question(
 
     settings = get_settings()
     api_key, model = _required_llm_config(settings)
-    sources = search_code(db, question, top_k)
-    context = build_context(sources)
-    user_prompt = f"Question:\n{question}\n\nRepository context:\n{context}"
-
     try:
-        completion = _create_client(settings, api_key).chat.completions.create(
+        retrieval_candidates = search_code(db, question, top_k)
+        # search_code performs a read-only SELECT. End its transaction before
+        # waiting on the external LLM while retaining ownership of the Session.
+        db.rollback()
+    except RetrievalError:
+        raise
+    except SQLAlchemyError as exc:
+        raise RetrievalError("Could not finalize retrieval transaction") from exc
+
+    context = build_context(retrieval_candidates)
+    user_prompt = f"Question:\n{question}\n\nRepository context:\n{context.text}"
+
+    client = _create_client(settings, api_key)
+    try:
+        completion = client.chat.completions.create(
             model=model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -103,6 +129,8 @@ def answer_question(
         )
     except OpenAIError as exc:
         raise RAGGenerationError(f"LLM request failed: {exc}") from exc
+    finally:
+        client.close()
 
     try:
         answer = completion.choices[0].message.content
@@ -110,4 +138,4 @@ def answer_question(
         raise RAGGenerationError("LLM response did not contain an answer") from exc
     if not answer:
         raise RAGGenerationError("LLM returned an empty answer")
-    return RAGResult(answer=answer, sources=sources)
+    return RAGResult(answer=answer, sources=context.included_chunks)

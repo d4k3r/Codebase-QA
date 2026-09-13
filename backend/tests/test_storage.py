@@ -4,8 +4,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.services import storage
+from app.services.chunker import SourceFileError
+from app.services.embeddings import EmbeddingError
+from app.services.repository_loader import RepositoryPathError
 
 
 class RecordingSession:
@@ -13,6 +17,8 @@ class RecordingSession:
         self.executed: list[Any] = []
         self.added: list[Any] = []
         self.commits = 0
+        self.rollback_calls = 0
+        self.fail_commit = False
 
     def execute(self, statement: Any) -> None:
         self.executed.append(statement)
@@ -21,10 +27,12 @@ class RecordingSession:
         self.added.extend(rows)
 
     def commit(self) -> None:
+        if self.fail_commit:
+            raise SQLAlchemyError("synthetic commit failure")
         self.commits += 1
 
     def rollback(self) -> None:
-        raise AssertionError("rollback was not expected")
+        self.rollback_calls += 1
 
 
 def test_indexes_fixture_in_one_batch_transaction(
@@ -47,3 +55,54 @@ def test_indexes_fixture_in_one_batch_transaction(
     assert len(session.executed) == 1
     assert len(session.added) == 4
     assert session.commits == 1
+    assert session.rollback_calls == 0
+
+
+@pytest.mark.parametrize(
+    ("failure", "error_type"),
+    [
+        (RepositoryPathError("synthetic discovery failure"), RepositoryPathError),
+        (SourceFileError("synthetic parse failure"), SourceFileError),
+        (EmbeddingError("synthetic embedding failure"), EmbeddingError),
+    ],
+)
+def test_precommit_failure_does_not_execute_replacement(
+    tiny_repository: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: Exception,
+    error_type: type[Exception],
+) -> None:
+    session = RecordingSession()
+    if isinstance(failure, RepositoryPathError):
+        monkeypatch.setattr(storage, "discover_python_files", lambda root: (_ for _ in ()).throw(failure))
+    elif isinstance(failure, SourceFileError):
+        monkeypatch.setattr(storage, "_load_chunks", lambda root, repository, files: (_ for _ in ()).throw(failure))
+    else:
+        monkeypatch.setattr(storage, "embed_texts", lambda texts: (_ for _ in ()).throw(failure))
+
+    with pytest.raises(error_type, match="synthetic"):
+        storage.index_repository(session, tiny_repository, "tiny-repo")  # type: ignore[arg-type]
+
+    assert session.executed == []
+    assert session.added == []
+    assert session.commits == 0
+
+
+def test_commit_failure_rolls_back_replacement(
+    tiny_repository: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        storage,
+        "embed_texts",
+        lambda texts: [[0.0] * 384 for _ in texts],
+    )
+    session = RecordingSession()
+    session.fail_commit = True
+
+    with pytest.raises(storage.StorageError, match="Could not store repository chunks"):
+        storage.index_repository(session, tiny_repository, "tiny-repo")  # type: ignore[arg-type]
+
+    assert len(session.executed) == 1
+    assert len(session.added) == 4
+    assert session.rollback_calls == 1
