@@ -6,7 +6,7 @@ Codebase QA V2 is one modular, synchronous FastAPI backend. PostgreSQL is the sy
 
 `POST /repositories/index` passes a local path to `storage.py`. The loader validates the directory, recursively discovers Python files, excludes generated directories, and sorts paths deterministically. The chunker parses each file with Python `ast` and extracts top-level functions, async functions, and classes. A module with meaningful source but no qualifying symbol becomes one fallback chunk.
 
-The embedding module lazily loads `sentence-transformers/all-MiniLM-L6-v2`, batches chunk text, normalizes the vectors, and enforces 384 dimensions. Storage then deletes existing rows with the same repository name and inserts the complete new set before one commit. Discovery, parsing, and embedding happen before the database replacement, so those failures leave the old rows untouched. A database failure rolls back the replacement transaction.
+The embedding module lazily loads `sentence-transformers/all-MiniLM-L6-v2`, batches chunk text, normalizes the vectors, and enforces 384 dimensions. Storage then deletes existing rows with the same repository name and inserts the complete new set before one commit. Discovery, parsing, and embedding happen before the database replacement, so those failures leave the old rows untouched. A database failure rolls back the replacement transaction. Discovery prunes excluded directories before descent and surfaces traversal errors instead of accepting a partial file list.
 
 ## Query and retrieval flow
 
@@ -14,7 +14,7 @@ The embedding module lazily loads `sentence-transformers/all-MiniLM-L6-v2`, batc
 
 ## RAG flow
 
-`POST /ask` validates LLM configuration, retrieves the nearest chunks, and builds a source-labelled context capped at 12,000 characters. `rag.py` sends one request through the official OpenAI Python client using the Chat Completions interface. `LLM_BASE_URL` can point at an OpenAI-compatible endpoint; no local model server is installed by this project. The answer is returned with the same retrieved source metadata.
+`POST /ask` validates LLM configuration, retrieves the nearest chunks, and builds a source-labelled context capped at 12,000 characters. Only complete chunks that fit are included, and only those chunks are returned as sources. `rag.py` rolls back the read-only retrieval transaction before waiting on the external request, explicitly closes the per-request OpenAI client, and applies configured timeout/retry limits. `LLM_BASE_URL` can point at an OpenAI-compatible endpoint; no local model server is installed by this project.
 
 ## Module responsibilities
 
@@ -47,5 +47,5 @@ PostgreSQL provides durable relational storage and transactions. The pgvector ex
 - Embedding model download/load/dimension failure: indexing or retrieval fails explicitly.
 - PostgreSQL connection/query failure: storage rolls back or retrieval fails explicitly.
 - Missing LLM API key/model: `/ask` returns a configuration error before retrieval.
-- OpenAI-compatible request failure or empty answer: `/ask` returns an upstream-generation error.
-- Retrieved context can be incomplete; the prompt requires the model to say so rather than invent behavior.
+- OpenAI-compatible request failure or empty answer: `/ask` returns an upstream-generation error while detailed diagnostics remain server-side.
+- Retrieved context can be incomplete because some candidates may not fit the bound; the prompt requires the model to say so rather than invent behavior.
