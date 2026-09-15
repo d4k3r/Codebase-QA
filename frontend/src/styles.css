@@ -173,10 +173,47 @@ textarea:focus {
   padding-bottom: 0.85rem;
 }
 
-.answer-text {
+.answer-markdown {
   line-height: 1.75;
+}
+
+.answer-markdown > :first-child {
+  margin-top: 0;
+}
+
+.answer-markdown > :last-child {
   margin-bottom: 0;
-  white-space: pre-wrap;
+}
+
+.answer-markdown ul,
+.answer-markdown ol {
+  padding-left: 1.4rem;
+}
+
+.answer-markdown li + li {
+  margin-top: 0.35rem;
+}
+
+.answer-markdown code {
+  background: #eef2f8;
+  border-radius: 4px;
+  color: #263c70;
+  font-size: 0.9em;
+  padding: 0.12rem 0.3rem;
+}
+
+.answer-markdown pre {
+  background: #172033;
+  border-radius: 7px;
+  color: #e9eefb;
+  overflow-x: auto;
+  padding: 0.85rem;
+}
+
+.answer-markdown pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
 }
 
 .source-list {
