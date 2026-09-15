@@ -8,7 +8,7 @@ It remains one synchronous FastAPI application. See [architecture](docs/architec
 
 ## Local setup
 
-From the repository root:
+Run these setup commands from the repository root:
 
 ```bash
 cp .env.example .env
@@ -26,7 +26,7 @@ The first sentence-transformer use downloads `sentence-transformers/all-MiniLM-L
 
 ## Database
 
-Start PostgreSQL and enable pgvector through the first-run container script:
+Start PostgreSQL from the repository root. Compose reads the PostgreSQL settings from the root `.env` when it exists; the application reads the same file and uses `DATABASE_URL` to connect from WSL:
 
 ```bash
 docker compose up -d postgres
@@ -71,6 +71,34 @@ curl -X POST http://127.0.0.1:8000/search \
 
 To use `/ask`, configure `LLM_API_KEY` and `LLM_MODEL_NAME` in the root `.env`. Set `LLM_BASE_URL` to use another OpenAI-compatible endpoint. No LLM server is installed by this project.
 
+Example request and response shape:
+
+```bash
+curl -X POST http://127.0.0.1:8000/ask \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"Where is configuration loaded?","top_k":3}'
+```
+
+```json
+{
+  "answer": "...",
+  "sources": [
+    {
+      "repository": "example",
+      "file_path": "app/config.py",
+      "symbol_type": "module",
+      "symbol_name": null,
+      "start_line": 1,
+      "end_line": 20,
+      "content": "...",
+      "cosine_distance": 0.12
+    }
+  ]
+}
+```
+
+Only complete chunks that fit the bounded model context are returned as `/ask` sources. Configure `LLM_TIMEOUT_SECONDS` and `LLM_MAX_RETRIES` for the deliberate external-request policy.
+
 ## Tests and retrieval evaluation
 
 ```bash
@@ -81,7 +109,43 @@ RUN_DATABASE_TESTS=1 pytest -m integration
 python -m scripts.evaluate_retrieval tests/fixtures/tiny_repo --top-k 3
 ```
 
-The default test run skips the real PostgreSQL/model integration test. The evaluation utility indexes the tiny fixture and reports transparent hit@k results independently of LLM answer quality.
+The default test run skips the real PostgreSQL/model integration tests. The evaluation utility writes temporary indexed rows to the configured database, uses a generated repository identity by default, cleans those rows up, and reports transparent hit@k results independently of LLM answer quality. Pass `--repository-name` only when a persistent identity is intentionally wanted.
+
+## Frontend
+
+The interview/demo frontend is a small React + TypeScript + Vite application in `frontend/`. It calls only the backend `/ask` endpoint; the OpenAI key remains server-side and is never sent to the browser.
+
+Prerequisites: Node.js 20+ and npm.
+
+Install dependencies from `frontend/`:
+
+```bash
+cd frontend
+npm install
+```
+
+Start the FastAPI backend from `backend/` in one terminal:
+
+```bash
+cd backend
+source .venv/bin/activate
+uvicorn app.main:app --reload
+```
+
+Start the Vite frontend from `frontend/` in another terminal:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Open `http://localhost:5173`. The frontend calls `/ask` with a relative URL. During development, Vite proxies that path to `http://127.0.0.1:8000`, where FastAPI is expected to be running. The backend remains responsible for retrieval, context construction, and the LLM request.
+
+Build the frontend from `frontend/` with:
+
+```bash
+npm run build
+```
 
 ## Deliberate limits
 
