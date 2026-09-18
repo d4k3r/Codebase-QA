@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+CHUNKING_IDENTIFIER = "python-ast-top-level-symbols-module-fallback-v1"
+
+
 class SourceFileError(ValueError):
     """Raised when a Python source file cannot be read or parsed."""
 

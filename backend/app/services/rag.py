@@ -97,6 +97,7 @@ def answer_question(
     db: Session,
     question: str,
     top_k: int | None = None,
+    repository: str | None = None,
 ) -> RAGResult:
     """Run retrieval and ask one OpenAI-compatible chat-completions endpoint."""
 
@@ -106,7 +107,7 @@ def answer_question(
     settings = get_settings()
     api_key, model = _required_llm_config(settings)
     try:
-        retrieval_candidates = search_code(db, question, top_k)
+        retrieval_candidates = search_code(db, question, top_k, repository)
         # search_code performs a read-only SELECT. End its transaction before
         # waiting on the external LLM while retaining ownership of the Session.
         db.rollback()

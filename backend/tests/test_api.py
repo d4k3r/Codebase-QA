@@ -66,17 +66,54 @@ def test_search_endpoint_returns_source_metadata(
         content="def add(left, right):\n    return left + right\n",
         cosine_distance=0.125,
     )
-    monkeypatch.setattr(routes, "search_code", lambda db, query, top_k: [result])
+    received: dict[str, object] = {}
 
-    response = client.post("/search", json={"query": "add two numbers", "top_k": 1})
+    def fake_search(
+        db: object, query: str, top_k: int | None, repository: str | None
+    ) -> list[RetrievedChunk]:
+        received.update(query=query, top_k=top_k, repository=repository)
+        return [result]
+
+    monkeypatch.setattr(routes, "search_code", fake_search)
+
+    response = client.post(
+        "/search",
+        json={
+            "query": "add two numbers",
+            "top_k": 1,
+            "repository": " tiny-repo ",
+        },
+    )
 
     assert response.status_code == 200
     assert response.json()["results"][0]["cosine_distance"] == 0.125
     assert response.json()["results"][0]["symbol_name"] == "add"
+    assert received == {
+        "query": "add two numbers",
+        "top_k": 1,
+        "repository": "tiny-repo",
+    }
 
 
 def test_search_schema_rejects_invalid_top_k(client: TestClient) -> None:
     response = client.post("/search", json={"query": "anything", "top_k": 0})
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "payload"),
+    [
+        ("/search", {"query": "anything", "repository": "   "}),
+        ("/ask", {"question": "anything", "repository": "   "}),
+    ],
+)
+def test_query_schemas_reject_blank_repository_scope(
+    client: TestClient,
+    endpoint: str,
+    payload: dict[str, object],
+) -> None:
+    response = client.post(endpoint, json=payload)
 
     assert response.status_code == 422
 

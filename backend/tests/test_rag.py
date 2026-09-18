@@ -113,16 +113,31 @@ def test_answer_question_sends_grounded_prompt_and_returns_sources(
     )
     fake_db = SimpleNamespace(rollback=lambda: captured.update(rolled_back=True))
     monkeypatch.setattr(rag, "get_settings", lambda: settings)
-    monkeypatch.setattr(rag, "search_code", lambda *args: [source])
+    def fake_search(
+        db: object,
+        question: str,
+        top_k: int | None,
+        repository: str | None,
+    ) -> list[RetrievedChunk]:
+        captured["repository"] = repository
+        return [source]
+
+    monkeypatch.setattr(rag, "search_code", fake_search)
     monkeypatch.setattr(rag, "_create_client", lambda *args: client)
 
-    result = rag.answer_question(fake_db, "How does addition work?", top_k=1)
+    result = rag.answer_question(
+        fake_db,
+        "How does addition work?",
+        top_k=1,
+        repository="tiny-repo",
+    )
 
     assert result.answer == "Addition returns left + right."
     assert result.sources == [source]
     assert captured["rolled_back"] is True
     assert captured["client_closed"] is True
     assert captured["model"] == "test-model"
+    assert captured["repository"] == "tiny-repo"
     messages = captured["messages"]
     assert isinstance(messages, list)
     assert "Do not invent repository behavior" in messages[0]["content"]

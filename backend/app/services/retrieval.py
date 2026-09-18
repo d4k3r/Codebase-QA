@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -34,6 +34,7 @@ def search_code(
     db: Session,
     query: str,
     top_k: int | None = None,
+    repository: str | None = None,
 ) -> list[RetrievedChunk]:
     """Return the nearest chunks; lower cosine distance means a closer match."""
 
@@ -41,9 +42,25 @@ def search_code(
     if not 1 <= limit <= MAX_TOP_K:
         raise ValueError(f"top_k must be between 1 and {MAX_TOP_K}")
 
+    scope = repository.strip() if repository is not None else None
+    if repository is not None and not scope:
+        raise ValueError("Repository scope must not be blank")
+
     query_vector = embed_query(query)
     distance = CodeChunk.embedding.cosine_distance(query_vector).label("cosine_distance")
-    statement = select(CodeChunk, distance).order_by(distance).limit(limit)
+    statement = select(CodeChunk, distance)
+    if scope is not None:
+        statement = statement.where(CodeChunk.repository == scope)
+    statement = statement.order_by(
+        distance,
+        CodeChunk.repository,
+        CodeChunk.file_path,
+        CodeChunk.start_line,
+        CodeChunk.end_line,
+        CodeChunk.symbol_type,
+        func.coalesce(CodeChunk.symbol_name, ""),
+        CodeChunk.id,
+    ).limit(limit)
 
     try:
         rows = db.execute(statement).all()

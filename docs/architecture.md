@@ -10,7 +10,7 @@ The embedding module lazily loads `sentence-transformers/all-MiniLM-L6-v2`, batc
 
 ## Query and retrieval flow
 
-`POST /search` embeds the query and issues one SQLAlchemy query ordered by pgvector cosine distance. Lower distance means a closer match. Retrieval is exact: every stored vector is eligible for comparison, and no HNSW or IVFFlat index is present.
+`POST /search` embeds the query and issues one SQLAlchemy query ordered by pgvector cosine distance. Lower distance means a closer match. An optional repository scope adds a SQL predicate before ordering and limiting; unknown scopes return no candidates, while omitted scope preserves global retrieval. Equal-distance results use stable source metadata and finally the row ID as deterministic tie-breakers for a fixed database snapshot. Repository scope is selection only, not authentication or authorization. Retrieval is exact: every vector within the selected scope is eligible for comparison, and no HNSW or IVFFlat index is present.
 
 ## RAG flow
 
@@ -31,7 +31,33 @@ The embedding module lazily loads `sentence-transformers/all-MiniLM-L6-v2`, batc
 - `retrieval.py`: performs exact cosine-distance SQL retrieval.
 - `rag.py`: bounds context, constructs the prompt, and calls the LLM.
 - `scripts/init_db.py`: creates MVP tables from SQLAlchemy metadata.
-- `scripts/evaluate_retrieval.py`: reports hit@k for three explicit questions.
+- `evaluation.py`: validates versioned datasets/manifests and reports source, index, retrieval, context-selection, and embedding-input diagnostics.
+- `scripts/evaluate_retrieval.py`: performs manifest-validated, repository-scoped, read-only scoring without an LLM call.
+- `scripts/prepare_evaluation_corpus.py`: explicitly write-enabled corpus preparation for an isolated/disposable evaluation database only.
+
+## Evaluation flow and safety
+
+The checked-in JSON dataset identifies one exact prepared corpus by repository name,
+stable indexed-source hash, chunk count, source revision, and chunking identifier.
+Default scoring starts a read-only PostgreSQL transaction, validates that manifest,
+then searches only that repository. It does not index, create schema, clean up rows,
+or call an answer provider. Corpus preparation is a separate command with an
+explicit write confirmation because it invokes normal delete-and-replace indexing.
+
+Each answerable case contains one or more required evidence units. A unit can list
+alternative acceptable source spans, but it is counted once even if several spans
+match. The evaluator reports source answerability, evidence present anywhere in the
+index, ranked retrieval candidates, and evidence retained by the production
+`build_context()` result. This separates absent indexed evidence from ranking misses
+and from context-selection loss. Token lengths are measured with the local embedding
+model tokenizer when available so chunks beyond the model input limit remain visible.
+
+Metric denominators are explicit in the JSON report. Hit@k, MRR@10, macro evidence
+recall@k, and all-evidence@k use answerable cases; micro evidence recall@k and index
+or context evidence recall use required evidence units; context sufficiency uses
+answerable cases; selection-loss rate uses retrieved evidence units. Unanswerable
+cases are listed separately and are not counted as retrieval failures. Cosine
+distance remains a ranking distance, not an answerability probability.
 
 ## Schema, model, PostgreSQL, and pgvector
 

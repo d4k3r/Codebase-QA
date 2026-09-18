@@ -85,7 +85,7 @@ def semantic_search(
     db: Session = Depends(get_db),
 ) -> SearchResponse:
     try:
-        results = search_code(db, request.query, request.top_k)
+        results = search_code(db, request.query, request.top_k, request.repository)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except (EmbeddingError, RetrievalError) as exc:
@@ -100,7 +100,12 @@ def ask_repository(
     db: Session = Depends(get_db),
 ) -> AskResponse:
     try:
-        result = answer_question(db, request.question, request.top_k)
+        result = answer_question(
+            db,
+            request.question,
+            request.top_k,
+            request.repository,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except LLMConfigurationError as exc:

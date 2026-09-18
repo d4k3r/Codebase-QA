@@ -1,0 +1,439 @@
+{
+  "format_version": 1,
+  "dataset_version": "codebase-qa-v2-v1.0.0",
+  "dataset_status": "Machine-prepared source-grounded draft pending human review.",
+  "corpus": {
+    "repository": "codebase-qa-v2",
+    "expected_chunk_count": 118,
+    "index_manifest_sha256": "f2d1827cbcaba99cc9d97937d1d68b4bf69a2bb9a180ee5f5a304a65a8a61148",
+    "source_revision": "f2026e3e8f960a66ac0f5c38052426483de12fb4",
+    "chunking_identifier": "python-ast-top-level-symbols-module-fallback-v1"
+  },
+  "cases": [
+    {
+      "case_id": "semantic-01",
+      "question": "How does repository discovery avoid silently indexing only part of a tree?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": ["discovery", "fail-closed"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "discovery-fail-closed", "acceptable_spans": [{"file_path": "backend/app/services/repository_loader.py", "start_line": 31, "end_line": 62, "symbol_type": "function", "symbol_name": "discover_python_files", "content_contains": ["os.scandir", "follow_symlinks=False", "RepositoryReadError"]}]}],
+      "rationale": "The discovery function explicitly classifies entries and raises on traversal or classification errors."
+    },
+    {
+      "case_id": "semantic-02",
+      "question": "How are Python files divided into source chunks without reconstructing code from the AST?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": ["ast", "chunking"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "ast-source-slicing", "acceptable_spans": [{"file_path": "backend/app/services/chunker.py", "start_line": 76, "end_line": 142, "symbol_type": "function", "symbol_name": "chunk_python_file", "content_contains": ["ast.parse", "source_lines", "node.end_lineno"]}]}],
+      "rationale": "The chunker parses with ast and slices the original source lines using AST boundaries."
+    },
+    {
+      "case_id": "semantic-03",
+      "question": "How does the embedding path make cosine comparisons reproducible?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": ["embeddings", "normalization"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "normalized-embeddings", "acceptable_spans": [{"file_path": "backend/app/services/embeddings.py", "start_line": 48, "end_line": 68, "symbol_type": "function", "symbol_name": "embed_texts", "content_contains": ["normalize_embeddings=True", "convert_to_numpy=True"]}]}],
+      "rationale": "The sentence-transformer encode call requests normalized vectors."
+    },
+    {
+      "case_id": "semantic-04",
+      "question": "What protects an existing repository index when replacement storage fails?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": ["transactions", "replacement"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "transactional-replacement", "acceptable_spans": [{"file_path": "backend/app/services/storage.py", "start_line": 42, "end_line": 85, "symbol_type": "function", "symbol_name": "index_repository", "content_contains": ["delete(CodeChunk)", "db.commit()", "db.rollback()"]}]}],
+      "rationale": "Delete and insert share one transaction and SQLAlchemy failures trigger rollback."
+    },
+
+    {
+      "case_id": "identifier-01",
+      "question": "Where is get_settings defined?",
+      "primary_category": "exact_identifier",
+      "secondary_tags": ["configuration"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "get-settings-definition", "acceptable_spans": [{"file_path": "backend/app/config.py", "start_line": 63, "end_line": 67, "symbol_type": "function", "symbol_name": "get_settings", "content_contains": ["return Settings()"]}]}],
+      "rationale": "The exact function definition is the primary evidence."
+    },
+    {
+      "case_id": "identifier-02",
+      "question": "Which class defines the code_chunks table and VECTOR(384) column?",
+      "primary_category": "exact_identifier",
+      "secondary_tags": ["sqlalchemy", "pgvector"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "codechunk-model", "acceptable_spans": [{"file_path": "backend/app/models.py", "start_line": 12, "end_line": 25, "symbol_type": "class", "symbol_name": "CodeChunk", "content_contains": ["__tablename__ = \"code_chunks\"", "VECTOR(384)"]}]}],
+      "rationale": "The ORM model contains both the table name and vector dimension."
+    },
+    {
+      "case_id": "identifier-03",
+      "question": "What does embed_query call to create a query vector?",
+      "primary_category": "exact_identifier",
+      "secondary_tags": ["embeddings"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "embed-query-definition", "acceptable_spans": [{"file_path": "backend/app/services/embeddings.py", "start_line": 71, "end_line": 76, "symbol_type": "function", "symbol_name": "embed_query", "content_contains": ["embed_texts([query])[0]"]}]}],
+      "rationale": "The exact wrapper shows validation and delegation to batch embedding."
+    },
+    {
+      "case_id": "identifier-04",
+      "question": "Which function constructs the bounded complete-chunk prompt context?",
+      "primary_category": "exact_identifier",
+      "secondary_tags": ["rag", "context"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "build-context-definition", "acceptable_spans": [{"file_path": "backend/app/services/rag.py", "start_line": 42, "end_line": 67, "symbol_type": "function", "symbol_name": "build_context", "content_contains": ["included_chunks", "MAX_CONTEXT_CHARACTERS"]}]}],
+      "rationale": "build_context is the production context-selection implementation."
+    },
+
+    {
+      "case_id": "config-01",
+      "question": "What embedding dimensionality constant does the application declare?",
+      "primary_category": "configuration_constants",
+      "secondary_tags": ["embedding", "known-index-gap"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "embedding-dimension-constant", "acceptable_spans": [{"file_path": "backend/app/services/embeddings.py", "start_line": 9, "end_line": 10, "content_contains": ["EMBEDDING_DIMENSION = 384"]}]}],
+      "rationale": "The answer exists as a module constant that the current symbol chunker omits."
+    },
+    {
+      "case_id": "config-02",
+      "question": "Which directory names are excluded from recursive repository discovery?",
+      "primary_category": "configuration_constants",
+      "secondary_tags": ["discovery", "known-index-gap"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "excluded-directories-constant", "acceptable_spans": [{"file_path": "backend/app/services/repository_loader.py", "start_line": 7, "end_line": 9, "content_contains": ["EXCLUDED_DIRECTORIES", "node_modules", "dist"]}]}],
+      "rationale": "The exclusion set is source evidence outside all indexed symbol chunks."
+    },
+    {
+      "case_id": "config-03",
+      "question": "What is the character budget for repository context?",
+      "primary_category": "configuration_constants",
+      "secondary_tags": ["rag", "known-index-gap"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "context-budget-constant", "acceptable_spans": [{"file_path": "backend/app/services/rag.py", "start_line": 13, "end_line": 17, "content_contains": ["MAX_CONTEXT_CHARACTERS = 12_000"]}]}],
+      "rationale": "The budget is a module constant omitted by current top-level symbol chunking."
+    },
+    {
+      "case_id": "config-04",
+      "question": "Which Docker image and tag provide PostgreSQL with pgvector?",
+      "primary_category": "configuration_constants",
+      "secondary_tags": ["docker", "known-index-gap"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "pgvector-docker-image", "acceptable_spans": [{"file_path": "docker-compose.yml", "start_line": 1, "end_line": 3, "content_contains": ["pgvector/pgvector:0.8.6-pg18-trixie"]}]}],
+      "rationale": "The answer exists in Compose, which the Python-only index does not ingest."
+    },
+
+    {
+      "case_id": "path-01",
+      "question": "Which file enables the PostgreSQL vector extension?",
+      "primary_category": "filename_path",
+      "secondary_tags": ["postgresql", "known-index-gap"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "vector-extension-sql", "acceptable_spans": [{"file_path": "docker/postgres/init.sql", "start_line": 1, "end_line": 1, "content_contains": ["CREATE EXTENSION IF NOT EXISTS vector"]}]}],
+      "rationale": "The path and SQL statement are outside the Python-only index."
+    },
+    {
+      "case_id": "path-02",
+      "question": "Where is the Vite development proxy for /ask configured?",
+      "primary_category": "filename_path",
+      "secondary_tags": ["frontend", "known-index-gap"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "vite-ask-proxy", "acceptable_spans": [{"file_path": "frontend/vite.config.ts", "start_line": 4, "end_line": 13, "content_contains": ["\"/ask\"", "http://127.0.0.1:8000"]}]}],
+      "rationale": "The TypeScript configuration exists in source but is not part of Python ingestion."
+    },
+    {
+      "case_id": "path-03",
+      "question": "Which backend script creates missing SQLAlchemy tables?",
+      "primary_category": "filename_path",
+      "secondary_tags": ["database", "initialization"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "init-db-script", "acceptable_spans": [{"file_path": "backend/scripts/init_db.py", "start_line": 7, "end_line": 11, "symbol_type": "function", "symbol_name": "main", "content_contains": ["Base.metadata.create_all"]}]}],
+      "rationale": "The script main function is indexed and identifies the initialization path."
+    },
+    {
+      "case_id": "path-04",
+      "question": "Which checked-in example file documents the LLM timeout and retry environment variables?",
+      "primary_category": "filename_path",
+      "secondary_tags": ["configuration", "known-index-gap"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "env-example-llm-settings", "acceptable_spans": [{"file_path": ".env.example", "start_line": 9, "end_line": 15, "content_contains": ["LLM_TIMEOUT_SECONDS=30", "LLM_MAX_RETRIES=2"]}]}],
+      "rationale": "The environment example is source documentation outside Python ingestion."
+    },
+
+    {
+      "case_id": "route-01",
+      "question": "Which decorated function implements GET /health?",
+      "primary_category": "decorator_api_route",
+      "secondary_tags": ["fastapi", "health"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "health-route", "acceptable_spans": [{"file_path": "backend/app/api/routes.py", "start_line": 42, "end_line": 46, "symbol_type": "async_function", "symbol_name": "health", "content_contains": ["@router.get(\"/health\"", "status=\"ok\""]}]}],
+      "rationale": "Decorator-preserving chunks contain the route path and handler."
+    },
+    {
+      "case_id": "route-02",
+      "question": "Which endpoint starts local repository indexing?",
+      "primary_category": "decorator_api_route",
+      "secondary_tags": ["fastapi", "indexing"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "index-route", "acceptable_spans": [{"file_path": "backend/app/api/routes.py", "start_line": 53, "end_line": 79, "symbol_type": "function", "symbol_name": "index_local_repository", "content_contains": ["/repositories/index", "index_repository"]}]}],
+      "rationale": "The decorated handler delegates to the indexing service."
+    },
+    {
+      "case_id": "route-03",
+      "question": "Which decorated handler implements POST /search?",
+      "primary_category": "decorator_api_route",
+      "secondary_tags": ["fastapi", "retrieval"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "search-route", "acceptable_spans": [{"file_path": "backend/app/api/routes.py", "start_line": 82, "end_line": 94, "symbol_type": "function", "symbol_name": "semantic_search", "content_contains": ["@router.post(\"/search\"", "search_code"]}]}],
+      "rationale": "The route decorator and service call are preserved together."
+    },
+    {
+      "case_id": "route-04",
+      "question": "Which decorated handler implements repository-grounded POST /ask?",
+      "primary_category": "decorator_api_route",
+      "secondary_tags": ["fastapi", "rag"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "ask-route", "acceptable_spans": [{"file_path": "backend/app/api/routes.py", "start_line": 97, "end_line": 117, "symbol_type": "function", "symbol_name": "ask_repository", "content_contains": ["@router.post(\"/ask\"", "answer_question"]}]}],
+      "rationale": "The route chunk identifies both the HTTP path and RAG orchestration call."
+    },
+
+    {
+      "case_id": "architecture-01",
+      "question": "Where is the FastAPI application constructed and the router attached?",
+      "primary_category": "architecture",
+      "secondary_tags": ["application", "routing"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "fastapi-construction", "acceptable_spans": [{"file_path": "backend/app/main.py", "start_line": 1, "end_line": 10, "symbol_type": "module", "content_contains": ["FastAPI", "include_router"]}]}],
+      "rationale": "The small module fallback chunk contains complete app construction."
+    },
+    {
+      "case_id": "architecture-02",
+      "question": "How is a synchronous SQLAlchemy request session owned and closed?",
+      "primary_category": "architecture",
+      "secondary_tags": ["database", "dependency-injection"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "get-db-lifecycle", "acceptable_spans": [{"file_path": "backend/app/database.py", "start_line": 15, "end_line": 22, "symbol_type": "function", "symbol_name": "get_db", "content_contains": ["SessionLocal()", "db.close()"]}]}],
+      "rationale": "The FastAPI dependency yields and finally closes the synchronous session."
+    },
+    {
+      "case_id": "architecture-03",
+      "question": "How does semantic retrieval ask PostgreSQL for exact cosine-nearest chunks?",
+      "primary_category": "architecture",
+      "secondary_tags": ["pgvector", "retrieval"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "exact-vector-query", "acceptable_spans": [{"file_path": "backend/app/services/retrieval.py", "start_line": 33, "end_line": 65, "symbol_type": "function", "symbol_name": "search_code", "content_contains": ["cosine_distance", "order_by", "limit"]}]}],
+      "rationale": "search_code constructs the pgvector distance expression and database ordering."
+    },
+    {
+      "case_id": "architecture-04",
+      "question": "Where does the RAG flow release its database transaction before external generation?",
+      "primary_category": "architecture",
+      "secondary_tags": ["rag", "transactions"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "rag-transaction-release", "acceptable_spans": [{"file_path": "backend/app/services/rag.py", "start_line": 96, "end_line": 141, "symbol_type": "function", "symbol_name": "answer_question", "content_contains": ["search_code", "db.rollback()", "chat.completions.create"]}]}],
+      "rationale": "The orchestration function ends retrieval before creating the provider request."
+    },
+
+    {
+      "case_id": "cross-module-01",
+      "question": "How does the indexing HTTP route reach the storage orchestration service?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": ["routes", "storage"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "route-to-index-service", "acceptable_spans": [{"file_path": "backend/app/api/routes.py", "start_line": 53, "end_line": 79, "symbol_type": "function", "symbol_name": "index_local_repository", "content_contains": ["index_repository(db", "IndexRepositoryResponse"]}]}],
+      "rationale": "The route chunk directly exposes the cross-module service delegation."
+    },
+    {
+      "case_id": "cross-module-02",
+      "question": "How does the search endpoint delegate to vector retrieval and serialize results?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": ["routes", "retrieval"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "route-to-search-service", "acceptable_spans": [{"file_path": "backend/app/api/routes.py", "start_line": 82, "end_line": 94, "symbol_type": "function", "symbol_name": "semantic_search", "content_contains": ["search_code", "_chunk_response"]}]}],
+      "rationale": "The endpoint both delegates retrieval and maps domain results to schemas."
+    },
+    {
+      "case_id": "cross-module-03",
+      "question": "How does the ask endpoint preserve only the sources returned by RAG orchestration?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": ["routes", "source-truthfulness"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "ask-result-sources", "acceptable_spans": [{"file_path": "backend/app/api/routes.py", "start_line": 97, "end_line": 117, "symbol_type": "function", "symbol_name": "ask_repository", "content_contains": ["result.sources", "_chunk_response"]}]}],
+      "rationale": "The route serializes the exact source list in the RAG result."
+    },
+    {
+      "case_id": "cross-module-04",
+      "question": "How does embedding model loading use application configuration?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": ["configuration", "embeddings"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "configured-embedding-model", "acceptable_spans": [{"file_path": "backend/app/services/embeddings.py", "start_line": 17, "end_line": 36, "symbol_type": "function", "symbol_name": "get_embedding_model", "content_contains": ["get_settings().embedding_model_name", "SentenceTransformer"]}]}],
+      "rationale": "Model creation reads the configured model identity through get_settings."
+    },
+
+    {
+      "case_id": "multi-01",
+      "question": "Which two stages discover Python files and then convert them to AST-aware chunks?",
+      "primary_category": "multiple_required_evidence",
+      "secondary_tags": ["indexing", "pipeline"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [
+        {"evidence_id": "discovery-stage", "acceptable_spans": [{"file_path": "backend/app/services/repository_loader.py", "start_line": 31, "end_line": 62, "symbol_type": "function", "symbol_name": "discover_python_files", "content_contains": ["discovered"]}]},
+        {"evidence_id": "chunking-stage", "acceptable_spans": [{"file_path": "backend/app/services/chunker.py", "start_line": 76, "end_line": 142, "symbol_type": "function", "symbol_name": "chunk_python_file", "content_contains": ["ast.parse"]}]}
+      ],
+      "rationale": "A complete answer needs one evidence unit for discovery and one for chunk construction."
+    },
+    {
+      "case_id": "multi-02",
+      "question": "Which evidence shows indexing both creates normalized embeddings and stores replacement rows transactionally?",
+      "primary_category": "multiple_required_evidence",
+      "secondary_tags": ["embeddings", "storage"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [
+        {"evidence_id": "embedding-stage", "acceptable_spans": [{"file_path": "backend/app/services/embeddings.py", "start_line": 48, "end_line": 68, "symbol_type": "function", "symbol_name": "embed_texts", "content_contains": ["normalize_embeddings=True"]}]},
+        {"evidence_id": "storage-stage", "acceptable_spans": [{"file_path": "backend/app/services/storage.py", "start_line": 42, "end_line": 85, "symbol_type": "function", "symbol_name": "index_repository", "content_contains": ["embed_texts", "db.commit()"]}]}
+      ],
+      "rationale": "The claim spans embedding production and transactional persistence."
+    },
+    {
+      "case_id": "multi-03",
+      "question": "Which evidence shows the query flow retrieves ranked chunks and then enforces the complete-chunk context bound?",
+      "primary_category": "multiple_required_evidence",
+      "secondary_tags": ["retrieval", "context"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [
+        {"evidence_id": "retrieval-stage", "acceptable_spans": [{"file_path": "backend/app/services/retrieval.py", "start_line": 33, "end_line": 65, "symbol_type": "function", "symbol_name": "search_code", "content_contains": ["cosine_distance"]}]},
+        {"evidence_id": "context-stage", "acceptable_spans": [{"file_path": "backend/app/services/rag.py", "start_line": 42, "end_line": 67, "symbol_type": "function", "symbol_name": "build_context", "content_contains": ["if used + required", "included_chunks"]}]}
+      ],
+      "rationale": "Retrieval and context selection are distinct pipeline stages."
+    },
+    {
+      "case_id": "multi-04",
+      "question": "Which evidence defines LLM timeout/retry settings and passes them into the OpenAI-compatible client?",
+      "primary_category": "multiple_required_evidence",
+      "secondary_tags": ["configuration", "provider"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [
+        {"evidence_id": "llm-settings", "acceptable_spans": [{"file_path": "backend/app/config.py", "start_line": 15, "end_line": 60, "symbol_type": "class", "symbol_name": "Settings", "content_contains": ["llm_timeout_seconds", "llm_max_retries"]}]},
+        {"evidence_id": "client-options", "acceptable_spans": [{"file_path": "backend/app/services/rag.py", "start_line": 85, "end_line": 93, "symbol_type": "function", "symbol_name": "_create_client", "content_contains": ["timeout", "max_retries"]}]}
+      ],
+      "rationale": "The behavior is established jointly by configuration and client construction."
+    },
+
+    {
+      "case_id": "near-match-01",
+      "question": "Which exception specifically represents a Python source file that cannot be read safely, rather than a general parse/path error?",
+      "primary_category": "difficult_near_matches",
+      "secondary_tags": ["exceptions", "chunking"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "source-read-error", "acceptable_spans": [{"file_path": "backend/app/services/chunker.py", "start_line": 14, "end_line": 15, "symbol_type": "class", "symbol_name": "SourceReadError", "content_contains": ["cannot be read safely"]}]}],
+      "distractors": [{"file_path": "backend/app/services/chunker.py", "start_line": 10, "end_line": 11, "symbol_name": "SourceFileError"}],
+      "rationale": "The target is intentionally close to the broader SourceFileError class."
+    },
+    {
+      "case_id": "near-match-02",
+      "question": "Which request schema accepts an ask question rather than a search query?",
+      "primary_category": "difficult_near_matches",
+      "secondary_tags": ["schemas", "api"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "ask-request-schema", "acceptable_spans": [{"file_path": "backend/app/schemas.py", "start_line": 46, "end_line": 48, "symbol_type": "class", "symbol_name": "AskRequest", "content_contains": ["question"]}]}],
+      "distractors": [{"file_path": "backend/app/schemas.py", "start_line": 26, "end_line": 28, "symbol_name": "SearchRequest"}],
+      "rationale": "AskRequest and SearchRequest have nearly identical shapes but different input field names."
+    },
+    {
+      "case_id": "near-match-03",
+      "question": "Which embedding function validates one query and returns only its first vector?",
+      "primary_category": "difficult_near_matches",
+      "secondary_tags": ["embeddings", "query"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "single-query-embedding", "acceptable_spans": [{"file_path": "backend/app/services/embeddings.py", "start_line": 71, "end_line": 76, "symbol_type": "function", "symbol_name": "embed_query", "content_contains": ["query.strip", "[0]"]}]}],
+      "distractors": [{"file_path": "backend/app/services/embeddings.py", "start_line": 48, "end_line": 68, "symbol_name": "embed_texts"}],
+      "rationale": "The target wrapper is easily confused with the batch encoder."
+    },
+    {
+      "case_id": "near-match-04",
+      "question": "Which domain record carries cosine_distance for a retrieved candidate?",
+      "primary_category": "difficult_near_matches",
+      "secondary_tags": ["retrieval", "dataclass"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": true,
+      "required_evidence": [{"evidence_id": "retrieved-chunk-record", "acceptable_spans": [{"file_path": "backend/app/services/retrieval.py", "start_line": 21, "end_line": 30, "symbol_type": "class", "symbol_name": "RetrievedChunk", "content_contains": ["cosine_distance"]}]}],
+      "distractors": [{"file_path": "backend/app/services/storage.py", "start_line": 20, "end_line": 25, "symbol_name": "IndexingStats"}],
+      "rationale": "RetrievedChunk and IndexingStats are both small records but describe different stages."
+    },
+
+    {
+      "case_id": "unanswerable-01",
+      "question": "How are BM25 scores combined with vector similarity in production retrieval?",
+      "primary_category": "unanswerable_insufficient_context",
+      "secondary_tags": ["bm25", "not-implemented"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": false,
+      "required_evidence": [],
+      "rationale": "The corpus does not implement BM25 or hybrid score fusion."
+    },
+    {
+      "case_id": "unanswerable-02",
+      "question": "Where does the API authorize a user to access a repository?",
+      "primary_category": "unanswerable_insufficient_context",
+      "secondary_tags": ["authorization", "not-implemented"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": false,
+      "required_evidence": [],
+      "rationale": "Repository selection exists only as retrieval scope; authorization is not implemented."
+    },
+    {
+      "case_id": "unanswerable-03",
+      "question": "How is multi-turn conversation history persisted and injected into later answers?",
+      "primary_category": "unanswerable_insufficient_context",
+      "secondary_tags": ["conversation", "not-implemented"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": false,
+      "required_evidence": [],
+      "rationale": "The application has no conversational memory or persistence."
+    },
+    {
+      "case_id": "unanswerable-04",
+      "question": "Which HNSW index parameters tune approximate vector retrieval?",
+      "primary_category": "unanswerable_insufficient_context",
+      "secondary_tags": ["ann", "not-implemented"],
+      "repository": "codebase-qa-v2",
+      "source_answerable": false,
+      "required_evidence": [],
+      "rationale": "The corpus intentionally uses exact search and defines no ANN index."
+    }
+  ]
+}

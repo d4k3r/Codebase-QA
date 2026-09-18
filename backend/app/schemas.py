@@ -2,7 +2,16 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _normalise_repository_scope(value: str | None) -> str | None:
+    if value is None:
+        return None
+    scope = value.strip()
+    if not scope:
+        raise ValueError("Repository scope must not be blank")
+    return scope
 
 
 class HealthResponse(BaseModel):
@@ -26,6 +35,9 @@ class IndexRepositoryResponse(BaseModel):
 class SearchRequest(BaseModel):
     query: str = Field(min_length=1)
     top_k: int | None = Field(default=None, ge=1, le=50)
+    repository: str | None = None
+
+    _validate_repository = field_validator("repository")(_normalise_repository_scope)
 
 
 class RetrievedChunkResponse(BaseModel):
@@ -46,6 +58,9 @@ class SearchResponse(BaseModel):
 class AskRequest(BaseModel):
     question: str = Field(min_length=1)
     top_k: int | None = Field(default=None, ge=1, le=50)
+    repository: str | None = None
+
+    _validate_repository = field_validator("repository")(_normalise_repository_scope)
 
 
 class AskResponse(BaseModel):

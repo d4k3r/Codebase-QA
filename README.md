@@ -66,8 +66,14 @@ Search it:
 ```bash
 curl -X POST http://127.0.0.1:8000/search \
   -H 'Content-Type: application/json' \
-  -d '{"query":"Where is configuration loaded?","top_k":5}'
+  -d '{"query":"Where is configuration loaded?","top_k":5,"repository":"example"}'
 ```
+
+`repository` is optional on both `/search` and `/ask`. When supplied, filtering is
+performed in PostgreSQL before ordering and limiting; an unknown repository returns
+no candidates and never falls back to global search. Omitting it preserves global
+search across all indexed repositories. This scope is retrieval selection, not an
+authentication or authorization boundary.
 
 To use `/ask`, configure `LLM_API_KEY` and `LLM_MODEL_NAME` in the root `.env`. Set `LLM_BASE_URL` to use another OpenAI-compatible endpoint. No LLM server is installed by this project.
 
@@ -76,7 +82,7 @@ Example request and response shape:
 ```bash
 curl -X POST http://127.0.0.1:8000/ask \
   -H 'Content-Type: application/json' \
-  -d '{"question":"Where is configuration loaded?","top_k":3}'
+  -d '{"question":"Where is configuration loaded?","top_k":3,"repository":"example"}'
 ```
 
 ```json
@@ -106,10 +112,31 @@ cd backend
 source .venv/bin/activate
 pytest
 RUN_DATABASE_TESTS=1 pytest -m integration
-python -m scripts.evaluate_retrieval tests/fixtures/tiny_repo --top-k 3
+python -m scripts.evaluate_retrieval \
+  --repository codebase-qa-v2 \
+  --candidate-depth 10 \
+  --output /tmp/codebase-qa-v2-evaluation.json
 ```
 
-The default test run skips the real PostgreSQL/model integration tests. The evaluation utility writes temporary indexed rows to the configured database, uses a generated repository identity by default, cleans those rows up, and reports transparent hit@k results independently of LLM answer quality. Pass `--repository-name` only when a persistent identity is intentionally wanted.
+The default test run skips the real PostgreSQL/model integration tests. The default
+evaluation command is read-only: it requires an explicit repository identity,
+validates the checked-in corpus manifest, performs scoped retrieval, reuses the
+production context selector, and never indexes, cleans up rows, creates schema, or
+calls an LLM. Its versioned 40-case JSON dataset is a machine-prepared,
+source-grounded draft pending human review.
+
+Corpus preparation is deliberately separate and write-enabled. Run
+`python -m scripts.prepare_evaluation_corpus --help` only against an explicitly
+isolated/disposable evaluation database: preparation uses the normal replacement
+semantics and can delete existing rows sharing the selected repository identity.
+
+The report keeps pipeline failures distinct: source answerability is a dataset
+label; index evidence coverage measures required evidence represented anywhere in
+the validated index; retrieval metrics measure that evidence in ranked candidates;
+and context metrics measure evidence retained by the real bounded `build_context()`.
+Hit@k, MRR@10, macro/micro evidence recall, all-evidence@k, context sufficiency, and
+selection loss all include raw numerators and denominators. Unanswerable cases are
+reported separately and are not treated as retrieval misses.
 
 ## Frontend
 
@@ -149,4 +176,4 @@ npm run build
 
 ## Deliberate limits
 
-Only local Python repositories are supported. Re-indexing replaces all rows for a repository name. Search is exact vector search. There is no Git cloning, incremental indexing, background work, authentication, frontend, ANN index, hybrid search, reranking, agent loop, or deployment automation.
+Only local Python repositories are supported. Re-indexing replaces all rows for a repository name. Search is exact vector search. There is no Git cloning, incremental indexing, background work, authentication, ANN index, hybrid search, reranking, agent loop, or deployment automation. The existing frontend is intentionally only a small `/ask` demonstration UI.
