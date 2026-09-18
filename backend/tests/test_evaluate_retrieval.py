@@ -243,6 +243,7 @@ def test_checked_in_dataset_is_versioned_balanced_and_not_claimed_human_reviewed
     assert len(categories) == 10
     assert "pending human review" in dataset.dataset_status.lower()
     assert "human-reviewed" not in dataset.dataset_status.lower()
+    assert len(evaluation.compute_case_set_hash(dataset)) == 64
 
 
 class ReadOnlySession:

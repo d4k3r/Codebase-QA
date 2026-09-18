@@ -1,13 +1,13 @@
 {
   "format_version": 1,
-  "dataset_version": "codebase-qa-v2-v1.0.0",
+  "dataset_version": "codebase-qa-v2-v1.1.0",
   "dataset_status": "Machine-prepared source-grounded draft pending human review.",
   "corpus": {
     "repository": "codebase-qa-v2",
-    "expected_chunk_count": 118,
-    "index_manifest_sha256": "f2d1827cbcaba99cc9d97937d1d68b4bf69a2bb9a180ee5f5a304a65a8a61148",
-    "source_revision": "f2026e3e8f960a66ac0f5c38052426483de12fb4",
-    "chunking_identifier": "python-ast-top-level-symbols-module-fallback-v1"
+    "expected_chunk_count": 212,
+    "index_manifest_sha256": "86aa6028950355c88b68d57bb3fc027be3e414acfb5a3ea45e3d2b341d70995b",
+    "source_revision": null,
+    "chunking_identifier": "python-ast-symbols-companions-config-text-v2"
   },
   "cases": [
     {
@@ -17,7 +17,7 @@
       "secondary_tags": ["discovery", "fail-closed"],
       "repository": "codebase-qa-v2",
       "source_answerable": true,
-      "required_evidence": [{"evidence_id": "discovery-fail-closed", "acceptable_spans": [{"file_path": "backend/app/services/repository_loader.py", "start_line": 31, "end_line": 62, "symbol_type": "function", "symbol_name": "discover_python_files", "content_contains": ["os.scandir", "follow_symlinks=False", "RepositoryReadError"]}]}],
+      "required_evidence": [{"evidence_id": "discovery-fail-closed", "acceptable_spans": [{"file_path": "backend/app/services/repository_loader.py", "start_line": 66, "end_line": 109, "symbol_type": "function", "symbol_name": "discover_python_files", "content_contains": ["os.scandir", "follow_symlinks=False", "RepositoryReadError"]}]}],
       "rationale": "The discovery function explicitly classifies entries and raises on traversal or classification errors."
     },
     {
@@ -305,7 +305,7 @@
       "repository": "codebase-qa-v2",
       "source_answerable": true,
       "required_evidence": [
-        {"evidence_id": "discovery-stage", "acceptable_spans": [{"file_path": "backend/app/services/repository_loader.py", "start_line": 31, "end_line": 62, "symbol_type": "function", "symbol_name": "discover_python_files", "content_contains": ["discovered"]}]},
+        {"evidence_id": "discovery-stage", "acceptable_spans": [{"file_path": "backend/app/services/repository_loader.py", "start_line": 66, "end_line": 109, "symbol_type": "function", "symbol_name": "discover_python_files", "content_contains": ["discovered"]}]},
         {"evidence_id": "chunking-stage", "acceptable_spans": [{"file_path": "backend/app/services/chunker.py", "start_line": 76, "end_line": 142, "symbol_type": "function", "symbol_name": "chunk_python_file", "content_contains": ["ast.parse"]}]}
       ],
       "rationale": "A complete answer needs one evidence unit for discovery and one for chunk construction."
@@ -357,7 +357,7 @@
       "secondary_tags": ["exceptions", "chunking"],
       "repository": "codebase-qa-v2",
       "source_answerable": true,
-      "required_evidence": [{"evidence_id": "source-read-error", "acceptable_spans": [{"file_path": "backend/app/services/chunker.py", "start_line": 14, "end_line": 15, "symbol_type": "class", "symbol_name": "SourceReadError", "content_contains": ["cannot be read safely"]}]}],
+      "required_evidence": [{"evidence_id": "source-read-error", "acceptable_spans": [{"file_path": "backend/app/services/chunker.py", "start_line": 17, "end_line": 18, "symbol_type": "class", "symbol_name": "SourceReadError", "content_contains": ["cannot be read safely"]}]}],
       "distractors": [{"file_path": "backend/app/services/chunker.py", "start_line": 10, "end_line": 11, "symbol_name": "SourceFileError"}],
       "rationale": "The target is intentionally close to the broader SourceFileError class."
     },
@@ -368,7 +368,7 @@
       "secondary_tags": ["schemas", "api"],
       "repository": "codebase-qa-v2",
       "source_answerable": true,
-      "required_evidence": [{"evidence_id": "ask-request-schema", "acceptable_spans": [{"file_path": "backend/app/schemas.py", "start_line": 46, "end_line": 48, "symbol_type": "class", "symbol_name": "AskRequest", "content_contains": ["question"]}]}],
+      "required_evidence": [{"evidence_id": "ask-request-schema", "acceptable_spans": [{"file_path": "backend/app/schemas.py", "start_line": 58, "end_line": 63, "symbol_type": "class", "symbol_name": "AskRequest", "content_contains": ["question"]}]}],
       "distractors": [{"file_path": "backend/app/schemas.py", "start_line": 26, "end_line": 28, "symbol_name": "SearchRequest"}],
       "rationale": "AskRequest and SearchRequest have nearly identical shapes but different input field names."
     },

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-CHUNKING_IDENTIFIER = "python-ast-top-level-symbols-module-fallback-v1"
+CHUNKING_IDENTIFIER = "python-ast-symbols-companions-config-text-v2"
 
 
 class SourceFileError(ValueError):
@@ -76,6 +76,29 @@ def _start_line(
     return min([node.lineno, *decorator_lines])
 
 
+def _source_chunk(
+    *,
+    repository_name: str,
+    relative_path: str,
+    source_lines: list[str],
+    symbol_type: str,
+    symbol_name: str | None,
+    start_line: int,
+    end_line: int,
+) -> SourceChunk:
+    """Create one chunk as an exact contiguous slice of the original source."""
+
+    return SourceChunk(
+        repository=repository_name,
+        file_path=relative_path,
+        symbol_type=symbol_type,
+        symbol_name=symbol_name,
+        start_line=start_line,
+        end_line=end_line,
+        content="".join(source_lines[start_line - 1 : end_line]),
+    )
+
+
 def chunk_python_file(
     file_path: str | Path,
     repository_root: str | Path,
@@ -106,31 +129,11 @@ def chunk_python_file(
         ) from exc
 
     source_lines = source.splitlines(keepends=True)
-    chunks: list[SourceChunk] = []
     supported_nodes = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+    symbol_nodes = [node for node in tree.body if isinstance(node, supported_nodes)]
 
-    for node in tree.body:
-        if not isinstance(node, supported_nodes):
-            continue
-        if node.end_lineno is None:
-            raise SourceFileError(f"Missing end-line metadata for {relative_path}")
-
-        chunks.append(
-            SourceChunk(
-                repository=repository_name,
-                file_path=relative_path,
-                symbol_type=_symbol_type(node),
-                symbol_name=node.name,
-                start_line=_start_line(source, node),
-                end_line=node.end_lineno,
-                content="".join(
-                    source_lines[_start_line(source, node) - 1 : node.end_lineno]
-                ),
-            )
-        )
-
-    if not chunks and tree.body and source.strip():
-        chunks.append(
+    if not symbol_nodes and tree.body and source.strip():
+        return [
             SourceChunk(
                 repository=repository_name,
                 file_path=relative_path,
@@ -140,6 +143,52 @@ def chunk_python_file(
                 end_line=max(1, len(source.splitlines())),
                 content=source,
             )
+        ]
+
+    chunks: list[SourceChunk] = []
+    companion_nodes: list[ast.stmt] = []
+
+    def flush_companion() -> None:
+        if not companion_nodes:
+            return
+        first = companion_nodes[0]
+        last = companion_nodes[-1]
+        if last.end_lineno is None:
+            raise SourceFileError(f"Missing end-line metadata for {relative_path}")
+        chunks.append(
+            _source_chunk(
+                repository_name=repository_name,
+                relative_path=relative_path,
+                source_lines=source_lines,
+                symbol_type="module_companion",
+                symbol_name=None,
+                start_line=first.lineno,
+                end_line=last.end_lineno,
+            )
         )
+        companion_nodes.clear()
+
+    for node in tree.body:
+        if not isinstance(node, supported_nodes):
+            companion_nodes.append(node)
+            continue
+        flush_companion()
+        if node.end_lineno is None:
+            raise SourceFileError(f"Missing end-line metadata for {relative_path}")
+
+        start_line = _start_line(source, node)
+        chunks.append(
+            _source_chunk(
+                repository_name=repository_name,
+                relative_path=relative_path,
+                source_lines=source_lines,
+                symbol_type=_symbol_type(node),
+                symbol_name=node.name,
+                start_line=start_line,
+                end_line=node.end_lineno,
+            )
+        )
+
+    flush_companion()
 
     return chunks

@@ -50,12 +50,41 @@ def test_indexes_fixture_in_one_batch_transaction(
 
     assert stats.repository == "tiny-repo"
     assert stats.python_files_discovered == 3
-    assert stats.chunks_created == 4
-    assert stats.rows_stored == 4
+    assert stats.chunks_created == 5
+    assert stats.rows_stored == 5
     assert len(session.executed) == 1
-    assert len(session.added) == 4
+    assert len(session.added) == 5
     assert session.commits == 1
     assert session.rollback_calls == 0
+
+
+def test_indexing_dispatches_python_and_allowlisted_config_sources(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "app.py").write_text(
+        "SETTING = 1\n\ndef read_setting():\n    return SETTING\n",
+        encoding="utf-8",
+    )
+    config_source = "services:\n  database: postgres\n"
+    (tmp_path / "compose.yml").write_text(config_source, encoding="utf-8")
+    monkeypatch.setattr(
+        storage,
+        "embed_texts",
+        lambda texts: [[0.0] * 384 for _ in texts],
+    )
+    session = RecordingSession()
+
+    stats = storage.index_repository(session, tmp_path, "mixed-repo")  # type: ignore[arg-type]
+
+    assert stats.python_files_discovered == 1
+    assert stats.chunks_created == 3
+    assert [row.symbol_type for row in session.added] == [
+        "module_companion",
+        "function",
+        "config",
+    ]
+    assert session.added[-1].content == config_source
 
 
 @pytest.mark.parametrize(
@@ -74,7 +103,11 @@ def test_precommit_failure_does_not_execute_replacement(
 ) -> None:
     session = RecordingSession()
     if isinstance(failure, RepositoryPathError):
-        monkeypatch.setattr(storage, "discover_python_files", lambda root: (_ for _ in ()).throw(failure))
+        monkeypatch.setattr(
+            storage,
+            "discover_source_files",
+            lambda root: (_ for _ in ()).throw(failure),
+        )
     elif isinstance(failure, SourceFileError):
         monkeypatch.setattr(storage, "_load_chunks", lambda root, repository, files: (_ for _ in ()).throw(failure))
     else:
@@ -104,5 +137,5 @@ def test_commit_failure_rolls_back_replacement(
         storage.index_repository(session, tiny_repository, "tiny-repo")  # type: ignore[arg-type]
 
     assert len(session.executed) == 1
-    assert len(session.added) == 4
+    assert len(session.added) == 5
     assert session.rollback_calls == 1

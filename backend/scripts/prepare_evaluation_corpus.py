@@ -30,7 +30,7 @@ def main() -> None:
         stats = index_repository(db, args.repository_path, args.repository)
     print(
         f"Prepared {stats.repository}: {stats.python_files_discovered} Python files, "
-        f"{stats.rows_stored} rows."
+        f"{stats.rows_stored} total rows including allowlisted config sources."
     )
 
 

@@ -4,7 +4,9 @@ Codebase QA V2 is one modular, synchronous FastAPI backend. PostgreSQL is the sy
 
 ## Indexing flow
 
-`POST /repositories/index` passes a local path to `storage.py`. The loader validates the directory, recursively discovers Python files, excludes generated directories, and sorts paths deterministically. The chunker parses each file with Python `ast` and extracts top-level functions, async functions, and classes. A module with meaningful source but no qualifying symbol becomes one fallback chunk.
+`POST /repositories/index` passes a local path to `storage.py`. The loader validates the directory, recursively discovers supported regular files, excludes generated/vendor directories, and sorts paths deterministically. Python chunking parses each file with `ast` and keeps top-level functions, async functions, and classes. When those symbols coexist with other meaningful top-level statements, contiguous uncovered statement regions become `module_companion` chunks. A module with meaningful source but no qualifying symbol remains one fallback chunk.
+
+The deliberate non-Python allowlist is YAML/YML, SQL, `.env.example`, and the exact filename `vite.config.ts`. These files use a separate bounded config-text chunker, not AST semantics. `.env`, arbitrary TypeScript, Markdown, TOML, binary/non-UTF-8 files, and generated/vendor trees are excluded. Every emitted chunk contains an exact contiguous original-source slice with truthful line boundaries.
 
 The embedding module lazily loads `sentence-transformers/all-MiniLM-L6-v2`, batches chunk text, normalizes the vectors, and enforces 384 dimensions. Storage then deletes existing rows with the same repository name and inserts the complete new set before one commit. Discovery, parsing, and embedding happen before the database replacement, so those failures leave the old rows untouched. A database failure rolls back the replacement transaction. Discovery prunes excluded directories before descent and surfaces traversal errors instead of accepting a partial file list.
 
@@ -24,8 +26,9 @@ The embedding module lazily loads `sentence-transformers/all-MiniLM-L6-v2`, batc
 - `models.py`: defines persisted SQLAlchemy tables.
 - `schemas.py`: defines validated HTTP request and response shapes.
 - `api/routes.py`: translates HTTP calls and predictable service errors.
-- `repository_loader.py`: validates a local directory and discovers Python files.
-- `chunker.py`: turns source files into AST-aware domain chunks.
+- `repository_loader.py`: validates a local directory and discovers allowlisted source files.
+- `chunker.py`: turns Python source into AST-aware symbol, companion, or fallback chunks.
+- `text_chunker.py`: creates bounded contiguous chunks for allowlisted config text.
 - `embeddings.py`: lazily produces normalized 384-dimensional vectors.
 - `storage.py`: orchestrates indexing and transactional replacement.
 - `retrieval.py`: performs exact cosine-distance SQL retrieval.

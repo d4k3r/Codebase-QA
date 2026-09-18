@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from app.models import CodeChunk
 from app.services.chunker import SourceChunk, chunk_python_file
 from app.services.embeddings import embed_texts
-from app.services.repository_loader import discover_python_files, resolve_repository_root
+from app.services.repository_loader import discover_source_files, resolve_repository_root
+from app.services.text_chunker import chunk_config_file
 
 
 class StorageError(RuntimeError):
@@ -35,7 +36,10 @@ def _resolve_repository_name(root: Path, repository_name: str | None) -> str:
 def _load_chunks(root: Path, repository: str, files: list[Path]) -> list[SourceChunk]:
     chunks: list[SourceChunk] = []
     for file_path in files:
-        chunks.extend(chunk_python_file(file_path, root, repository))
+        if file_path.suffix == ".py":
+            chunks.extend(chunk_python_file(file_path, root, repository))
+        else:
+            chunks.extend(chunk_config_file(file_path, root, repository))
     return chunks
 
 
@@ -48,7 +52,7 @@ def index_repository(
 
     root = resolve_repository_root(repository_path)
     repository = _resolve_repository_name(root, repository_name)
-    files = discover_python_files(root)
+    files = discover_source_files(root)
     chunks = _load_chunks(root, repository, files)
     vectors = embed_texts([chunk.content for chunk in chunks])
 
@@ -79,7 +83,7 @@ def index_repository(
 
     return IndexingStats(
         repository=repository,
-        python_files_discovered=len(files),
+        python_files_discovered=sum(path.suffix == ".py" for path in files),
         chunks_created=len(chunks),
         rows_stored=len(rows),
     )

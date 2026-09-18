@@ -41,21 +41,58 @@ def test_real_index_and_semantic_retrieval(tiny_repository: Path) -> None:
             )
 
             assert stats.repository == repository_name
-            assert stats.rows_stored == 4
+            assert stats.rows_stored == 5
             assert any(
                 result.repository == repository_name
                 and result.file_path == "calculator.py"
                 and result.symbol_name == "add"
                 for result in results
             )
+            first_snapshot = db.execute(
+                select(
+                    CodeChunk.file_path,
+                    CodeChunk.symbol_type,
+                    CodeChunk.symbol_name,
+                    CodeChunk.start_line,
+                    CodeChunk.end_line,
+                    CodeChunk.content,
+                )
+                .where(CodeChunk.repository == repository_name)
+                .order_by(
+                    CodeChunk.file_path,
+                    CodeChunk.start_line,
+                    CodeChunk.end_line,
+                    CodeChunk.symbol_type,
+                    CodeChunk.symbol_name,
+                )
+            ).all()
 
             index_repository(db, tiny_repository, repository_name)
+            second_snapshot = db.execute(
+                select(
+                    CodeChunk.file_path,
+                    CodeChunk.symbol_type,
+                    CodeChunk.symbol_name,
+                    CodeChunk.start_line,
+                    CodeChunk.end_line,
+                    CodeChunk.content,
+                )
+                .where(CodeChunk.repository == repository_name)
+                .order_by(
+                    CodeChunk.file_path,
+                    CodeChunk.start_line,
+                    CodeChunk.end_line,
+                    CodeChunk.symbol_type,
+                    CodeChunk.symbol_name,
+                )
+            ).all()
             row_count = db.scalar(
                 select(func.count()).select_from(CodeChunk).where(
                     CodeChunk.repository == repository_name
                 )
             )
-            assert row_count == 4
+            assert row_count == 5
+            assert second_snapshot == first_snapshot
         finally:
             db.rollback()
             db.execute(delete(CodeChunk).where(CodeChunk.repository == repository_name))
@@ -76,7 +113,7 @@ def test_failed_replacement_preserves_previous_rows(
     with SessionLocal() as db:
         try:
             stats = index_repository(db, tiny_repository, repository_name)
-            assert stats.rows_stored == 4
+            assert stats.rows_stored == 5
 
             with pytest.raises(SourceFileError):
                 index_repository(db, broken_repository, repository_name)
@@ -86,7 +123,7 @@ def test_failed_replacement_preserves_previous_rows(
                     CodeChunk.repository == repository_name
                 )
             )
-            assert row_count == 4
+            assert row_count == 5
         finally:
             db.rollback()
             db.execute(delete(CodeChunk).where(CodeChunk.repository == repository_name))
@@ -129,7 +166,7 @@ def test_post_delete_failure_rolls_back_to_previous_rows(
 
         try:
             initial_stats = index_repository(db, tiny_repository, repository_name)
-            assert initial_stats.rows_stored == 4
+            assert initial_stats.rows_stored == 5
             monkeypatch.setattr(db, "commit", commit_with_post_delete_failure)
             fail_commit = True
 
@@ -141,6 +178,7 @@ def test_post_delete_failure_rolls_back_to_previous_rows(
                 select(CodeChunk.file_path).where(CodeChunk.repository == repository_name)
             ).all()
             assert sorted(restored_paths) == [
+                "calculator.py",
                 "calculator.py",
                 "calculator.py",
                 "constants.py",

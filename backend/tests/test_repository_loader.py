@@ -6,7 +6,11 @@ from pathlib import Path
 import pytest
 
 from app.services import repository_loader
-from app.services.repository_loader import RepositoryPathError, discover_python_files
+from app.services.repository_loader import (
+    RepositoryPathError,
+    discover_python_files,
+    discover_source_files,
+)
 
 
 def test_discovers_python_files_in_deterministic_order(tiny_repository: Path) -> None:
@@ -81,3 +85,39 @@ def test_ignores_nonregular_python_files(tmp_path: Path) -> None:
         pytest.skip("FIFO creation is unavailable on this platform")
 
     assert discover_python_files(tmp_path) == []
+
+
+def test_discovers_only_deliberately_supported_config_files(tmp_path: Path) -> None:
+    (tmp_path / "module.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (tmp_path / "docker-compose.yml").write_text("services: {}\n", encoding="utf-8")
+    (tmp_path / "settings.yaml").write_text("enabled: true\n", encoding="utf-8")
+    (tmp_path / "init.sql").write_text("SELECT 1;\n", encoding="utf-8")
+    (tmp_path / "vite.config.ts").write_text("export default {};\n", encoding="utf-8")
+    (tmp_path / ".env.example").write_text("SETTING=example\n", encoding="utf-8")
+    (tmp_path / ".env").write_text("SECRET=do-not-index\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text("not allowlisted\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+
+    files = discover_source_files(tmp_path)
+
+    assert [path.name for path in files] == [
+        ".env.example",
+        "docker-compose.yml",
+        "init.sql",
+        "module.py",
+        "settings.yaml",
+        "vite.config.ts",
+    ]
+
+
+def test_config_discovery_excludes_binary_and_generated_or_vendor_files(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "binary.sql").write_bytes(b"SELECT\x00binary")
+    for directory_name in ("build", "dist", "node_modules", "vendor"):
+        directory = tmp_path / directory_name
+        directory.mkdir()
+        (directory / "hidden.py").write_text("VALUE = 1\n", encoding="utf-8")
+        (directory / "hidden.yml").write_text("value: 1\n", encoding="utf-8")
+
+    assert discover_source_files(tmp_path) == []

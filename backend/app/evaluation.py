@@ -153,6 +153,17 @@ def load_dataset(path: Path) -> tuple[EvaluationDataset, str]:
     return dataset, hashlib.sha256(canonical).hexdigest()
 
 
+def compute_case_set_hash(dataset: EvaluationDataset) -> str:
+    """Hash questions and gold labels independently from the corpus manifest."""
+
+    canonical = json.dumps(
+        [case.model_dump(mode="json") for case in dataset.cases],
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def _source_identifier(chunk: IndexedChunk | RetrievedChunk) -> str:
     symbol = chunk.symbol_name or "<module>"
     return (
@@ -602,6 +613,7 @@ def evaluate_dataset(
             "dataset_version": dataset.dataset_version,
             "dataset_status": dataset.dataset_status,
             "dataset_sha256": dataset_hash,
+            "case_set_sha256": compute_case_set_hash(dataset),
             "corpus_manifest_sha256": actual_manifest,
             "corpus_source_revision": dataset.corpus.source_revision,
             "repository": scope,

@@ -2,9 +2,9 @@
 
 Codebase QA V2 is a small, learning-oriented backend that indexes local Python repositories and answers questions using AST-aware chunks, local sentence-transformer embeddings, PostgreSQL/pgvector retrieval, and an OpenAI-compatible LLM.
 
-Implemented now: recursive Python discovery, top-level function/class/module chunking, normalized 384-dimensional embeddings, transactional repository replacement, exact cosine-distance search, `/health`, `/repositories/index`, `/search`, and `/ask`.
+Implemented now: recursive source discovery, AST-aware Python symbol and module-companion chunking, a narrow config-text allowlist, normalized 384-dimensional embeddings, transactional repository replacement, exact cosine-distance search, `/health`, `/repositories/index`, `/search`, and `/ask`.
 
-It remains one synchronous FastAPI application. See [architecture](docs/architecture.md) for the concrete flows and [productionisation options](docs/productionisation.md) for ideas that are explicitly not implemented.
+It remains one synchronous FastAPI application. See [architecture](docs/architecture.md) for the concrete flows, [source coverage](docs/source-coverage.md) for the measured chunking experiment, and [productionisation options](docs/productionisation.md) for ideas that are explicitly not implemented.
 
 ## Local setup
 
@@ -176,4 +176,4 @@ npm run build
 
 ## Deliberate limits
 
-Only local Python repositories are supported. Re-indexing replaces all rows for a repository name. Search is exact vector search. There is no Git cloning, incremental indexing, background work, authentication, ANN index, hybrid search, reranking, agent loop, or deployment automation. The existing frontend is intentionally only a small `/ask` demonstration UI.
+Python is the only parsed programming language. YAML/YML, SQL, `.env.example`, and specifically `vite.config.ts` are indexed as bounded config text; `.env`, general TypeScript, Markdown, TOML, binaries, and generated/vendor trees remain unsupported. Re-indexing replaces all rows for a repository name. Search is exact vector search. There is no Git cloning, incremental indexing, background work, authentication, ANN index, hybrid search, reranking, agent loop, or deployment automation. The existing frontend is intentionally only a small `/ask` demonstration UI.
