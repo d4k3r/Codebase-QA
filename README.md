@@ -4,7 +4,7 @@ Codebase QA V2 is a small, learning-oriented backend that indexes local Python r
 
 Implemented now: recursive source discovery, AST-aware Python symbol and module-companion chunking, a narrow config-text allowlist, normalized 384-dimensional embeddings, transactional repository replacement, exact cosine-distance search, `/health`, `/repositories/index`, `/search`, and `/ask`.
 
-It remains one synchronous FastAPI application. See [architecture](docs/architecture.md) for the concrete flows, [source coverage](docs/source-coverage.md) for the measured chunking experiment, and [productionisation options](docs/productionisation.md) for ideas that are explicitly not implemented.
+It remains one synchronous FastAPI application. See [architecture](docs/architecture.md) for the concrete flows, [source coverage](docs/source-coverage.md) and [bounded structural chunking](docs/structural-chunking.md) for measured experiments, and [productionisation options](docs/productionisation.md) for ideas that are explicitly not implemented.
 
 ## Local setup
 

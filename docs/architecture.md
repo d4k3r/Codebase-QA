@@ -2,6 +2,11 @@
 
 Codebase QA V2 is one modular, synchronous FastAPI backend. PostgreSQL is the system of record; pgvector adds the vector column type and cosine-distance operators.
 
+The active chunking policy is the accepted Batch 2A source-coverage baseline. A later
+bounded structural chunking policy was evaluated and rejected because its retrieval
+regression outweighed its truncation reduction; it is retained only as an experiment
+record in [`structural-chunking.md`](structural-chunking.md).
+
 ## Indexing flow
 
 `POST /repositories/index` passes a local path to `storage.py`. The loader validates the directory, recursively discovers supported regular files, excludes generated/vendor directories, and sorts paths deterministically. Python chunking parses each file with `ast` and keeps top-level functions, async functions, and classes. When those symbols coexist with other meaningful top-level statements, contiguous uncovered statement regions become `module_companion` chunks. A module with meaningful source but no qualifying symbol remains one fallback chunk.

@@ -57,5 +57,5 @@ facts while also changing dense-vector competition.
 
 Oversized symbols were deliberately not split. The largest observed chunk increased
 from 588 to 1,282 tokens, and six evaluated evidence units had at least one required
-content anchor beyond the effective 256-token boundary. Chunk-size policy is a later,
-separate experiment.
+content anchor beyond the effective 256-token boundary. The subsequent bounded
+structural chunking experiment is documented separately from this baseline.
