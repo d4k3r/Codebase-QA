@@ -6,6 +6,8 @@ Implemented now: recursive source discovery, AST-aware Python symbol and module-
 
 It remains one synchronous FastAPI application. See [architecture](docs/architecture.md) for the concrete flows, [source coverage](docs/source-coverage.md) and [bounded structural chunking](docs/structural-chunking.md) for measured experiments, and [productionisation options](docs/productionisation.md) for ideas that are explicitly not implemented.
 
+Dense retrieval remains the serving default. The [dense/lexical/hybrid comparison](docs/retrieval-experiment.md) is an explicit evaluation experiment, not a `/ask` default change.
+
 ## Local setup
 
 Run these setup commands from the repository root:
@@ -116,6 +118,7 @@ python -m scripts.evaluate_retrieval \
   --repository codebase-qa-v2 \
   --candidate-depth 10 \
   --output /tmp/codebase-qa-v2-evaluation.json
+# On the same prepared disposable corpus, compare --mode lexical or --mode hybrid.
 ```
 
 The default test run skips the real PostgreSQL/model integration tests. The default

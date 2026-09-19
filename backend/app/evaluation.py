@@ -19,7 +19,15 @@ from app.models import CodeChunk
 from app.services.chunker import CHUNKING_IDENTIFIER
 from app.services.embeddings import EMBEDDING_DIMENSION, get_embedding_model
 from app.services.rag import MAX_CONTEXT_CHARACTERS, build_context
-from app.services.retrieval import MAX_TOP_K, RetrievedChunk, search_code
+from app.services.retrieval import (
+    MAX_TOP_K,
+    RRF_BRANCH_DEPTH,
+    RRF_CONSTANT,
+    RetrievalMode,
+    RetrievedChunk,
+    retrieve_code,
+    search_code,
+)
 
 
 METRIC_DEPTHS = (1, 3, 5, 10)
@@ -519,6 +527,9 @@ def evaluate_dataset(
     dataset_hash: str,
     repository: str,
     candidate_depth: int = 10,
+    mode: RetrievalMode = "dense",
+    branch_depth: int = RRF_BRANCH_DEPTH,
+    rrf_constant: int = RRF_CONSTANT,
 ) -> dict[str, object]:
     """Evaluate one prepared corpus using scoped retrieval and production context."""
 
@@ -536,12 +547,20 @@ def evaluate_dataset(
     outcomes: list[CaseOutcome] = []
     case_reports: list[dict[str, object]] = []
     for case in dataset.cases:
-        candidates = search_code(
-            db,
-            case.question,
-            top_k=candidate_depth,
-            repository=scope,
-        )
+        if mode == "dense":
+            candidates = search_code(
+                db, case.question, top_k=candidate_depth, repository=scope
+            )
+        else:
+            candidates = retrieve_code(
+                db,
+                case.question,
+                top_k=candidate_depth,
+                repository=scope,
+                mode=mode,
+                branch_depth=branch_depth,
+                rrf_constant=rrf_constant,
+            )
         context = build_context(candidates)
         indexed_evidence = evidence_matches(case, indexed_chunks)
         candidate_matches = _candidate_match_sets(case, candidates)
@@ -588,6 +607,11 @@ def evaluate_dataset(
                         "start_line": candidate.start_line,
                         "end_line": candidate.end_line,
                         "cosine_distance": candidate.cosine_distance,
+                        "lexical_score": candidate.lexical_score,
+                        "dense_rank": candidate.dense_rank,
+                        "lexical_rank": candidate.lexical_rank,
+                        "fusion_score": candidate.fusion_score,
+                        "fusion_rank": candidate.fusion_rank,
                         "matched_evidence_ids": sorted(candidate_matches[rank - 1]),
                         "embedding_input": token_diagnostics.get(
                             _source_identifier(candidate),
@@ -629,6 +653,9 @@ def evaluate_dataset(
             ),
             "chunking_identifier": CHUNKING_IDENTIFIER,
             "candidate_depth": candidate_depth,
+            "retrieval_mode": mode,
+            "rrf_constant": rrf_constant if mode == "hybrid" else None,
+            "rrf_branch_depth": branch_depth if mode == "hybrid" else None,
             "context_budget_characters": MAX_CONTEXT_CHARACTERS,
             "package_versions": _package_versions(),
         },

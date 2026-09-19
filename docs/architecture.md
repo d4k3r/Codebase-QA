@@ -17,7 +17,7 @@ The embedding module lazily loads `sentence-transformers/all-MiniLM-L6-v2`, batc
 
 ## Query and retrieval flow
 
-`POST /search` embeds the query and issues one SQLAlchemy query ordered by pgvector cosine distance. Lower distance means a closer match. An optional repository scope adds a SQL predicate before ordering and limiting; unknown scopes return no candidates, while omitted scope preserves global retrieval. Equal-distance results use stable source metadata and finally the row ID as deterministic tie-breakers for a fixed database snapshot. Repository scope is selection only, not authentication or authorization. Retrieval is exact: every vector within the selected scope is eligible for comparison, and no HNSW or IVFFlat index is present.
+`POST /search` and `/ask` still default to exact dense pgvector cosine-distance retrieval. Lower distance means a closer match. An optional repository scope adds a SQL predicate before ordering and limiting; unknown scopes return no candidates, while omitted scope preserves global retrieval. Equal-distance results use stable source metadata and finally the row ID as deterministic tie-breakers for a fixed database snapshot. Repository scope is selection only, not authentication or authorization. No HNSW or IVFFlat index is present. The evaluator can explicitly compare PostgreSQL lexical `ts_rank_cd` (not BM25) and dense/lexical RRF without changing serving defaults; see [the measured experiment](retrieval-experiment.md). Hybrid branches share a short repeatable-read transaction.
 
 ## RAG flow
 
@@ -37,6 +37,7 @@ The embedding module lazily loads `sentence-transformers/all-MiniLM-L6-v2`, batc
 - `embeddings.py`: lazily produces normalized 384-dimensional vectors.
 - `storage.py`: orchestrates indexing and transactional replacement.
 - `retrieval.py`: performs exact cosine-distance SQL retrieval.
+- `lexical.py`: supplies code-aware query terms for experimental PostgreSQL lexical retrieval.
 - `rag.py`: bounds context, constructs the prompt, and calls the LLM.
 - `scripts/init_db.py`: creates MVP tables from SQLAlchemy metadata.
 - `evaluation.py`: validates versioned datasets/manifests and reports source, index, retrieval, context-selection, and embedding-input diagnostics.

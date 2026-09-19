@@ -5,7 +5,7 @@ from uuid import uuid4
 from pathlib import Path
 
 import pytest
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import evaluation
@@ -250,6 +250,9 @@ def test_repository_scope_filters_before_limit_and_ties_are_deterministic(
                 top_k=2,
                 repository=target_repository,
             )
+            lexical_tied = retrieval.search_lexical(
+                db, "shared_identifier", top_k=2, repository=target_repository
+            )
             missing = retrieval.search_code(
                 db,
                 "shared identifier",
@@ -315,6 +318,7 @@ def test_repository_scope_filters_before_limit_and_ties_are_deterministic(
 
             assert [item.repository for item in scoped] == [target_repository]
             assert [item.file_path for item in tied] == ["alpha.py", "zeta.py"]
+            assert [item.file_path for item in lexical_tied] == ["alpha.py", "zeta.py"]
             assert missing == []
             assert {
                 candidate["repository"]
@@ -327,5 +331,68 @@ def test_repository_scope_filters_before_limit_and_ties_are_deterministic(
                 delete(CodeChunk).where(
                     CodeChunk.repository.in_([target_repository, other_repository])
                 )
+            )
+            db.commit()
+
+
+@DATABASE_TEST_SKIP
+def test_postgresql_lexical_and_hybrid_scope_ranking_and_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Exercise both branches on the configured isolated test database."""
+
+    Base.metadata.create_all(bind=engine)
+    target = f"lexical-target-{uuid4().hex}"
+    other = f"lexical-other-{uuid4().hex}"
+    vector = [1.0] + [0.0] * 383
+    rows = [
+        CodeChunk(repository=target, file_path="zeta.py", symbol_type="function",
+                  symbol_name="helper", start_line=1, end_line=2,
+                  content="def helper():\n    return 'get_embedding_model'\n", embedding=vector),
+        CodeChunk(repository=target, file_path="alpha.py", symbol_type="function",
+                  symbol_name="get_embedding_model", start_line=1, end_line=2,
+                  content="def get_embedding_model():\n    return 1\n", embedding=vector),
+        CodeChunk(repository=other, file_path="foreign.py", symbol_type="function",
+                  symbol_name="get_embedding_model", start_line=1, end_line=2,
+                  content="def get_embedding_model():\n    return 'get_embedding_model'\n" * 3,
+                  embedding=vector),
+    ]
+    monkeypatch.setattr(retrieval, "embed_query", lambda query: vector)
+    try:
+        with SessionLocal() as db:
+            db.add_all(rows)
+            db.commit()
+            lexical = retrieval.search_lexical(db, "get_embedding_model", 2, target)
+            scoped_one = retrieval.search_lexical(db, "get_embedding_model", 1, target)
+            missing = retrieval.search_lexical(
+                db, "get_embedding_model", 2, f"missing-{uuid4().hex}"
+            )
+            assert [item.repository for item in lexical] == [target, target]
+            assert scoped_one[0].symbol_name == "get_embedding_model"
+            assert all(item.cosine_distance is None for item in lexical)
+            assert missing == []
+        with SessionLocal() as db:
+            hybrid = retrieval.retrieve_code(
+                db, "get_embedding_model", 2, target, "hybrid", branch_depth=3
+            )
+            assert {item.repository for item in hybrid} == {target}
+            assert (
+                db.execute(text("SHOW transaction_isolation")).scalar_one()
+                == "repeatable read"
+            )
+            assert len(hybrid) == 2
+            # A concurrent replacement cannot change the reader's snapshot.
+            with SessionLocal() as writer:
+                writer.execute(delete(CodeChunk).where(CodeChunk.repository == target))
+                writer.commit()
+            still_visible = retrieval.search_lexical(
+                db, "get_embedding_model", 2, target
+            )
+            assert len(still_visible) == 2
+    finally:
+        with SessionLocal() as db:
+            db.rollback()
+            db.execute(
+                delete(CodeChunk).where(CodeChunk.repository.in_([target, other]))
             )
             db.commit()

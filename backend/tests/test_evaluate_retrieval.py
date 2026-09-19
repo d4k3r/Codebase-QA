@@ -145,8 +145,10 @@ def test_blank_evaluation_scope_is_rejected_before_index_access(
         )
 
 
+@pytest.mark.parametrize("mode", ["dense", "lexical", "hybrid"])
 def test_evaluator_reports_retrieved_evidence_excluded_by_real_context_selection(
     monkeypatch: pytest.MonkeyPatch,
+    mode: str,
 ) -> None:
     large = evaluation.IndexedChunk(
         1, "fixture", "large.py", "module", None, 1, 100, "marker " + "x" * 500
@@ -208,7 +210,18 @@ def test_evaluator_reports_retrieved_evidence_excluded_by_real_context_selection
         "load_indexed_chunks",
         lambda db, repository: [large, small],
     )
-    monkeypatch.setattr(evaluation, "search_code", lambda *args, **kwargs: candidates)
+    if mode == "dense":
+        monkeypatch.setattr(evaluation, "search_code", lambda *args, **kwargs: candidates)
+    else:
+        monkeypatch.setattr(
+            evaluation, "search_code",
+            lambda *args, **kwargs: pytest.fail("non-dense mode must not use dense-only dispatch"),
+        )
+        def retrieve(*args: object, **kwargs: object) -> list[RetrievedChunk]:
+            assert kwargs["mode"] == mode
+            assert kwargs["repository"] == "fixture"
+            return candidates
+        monkeypatch.setattr(evaluation, "retrieve_code", retrieve)
     monkeypatch.setattr(
         evaluation,
         "collect_embedding_diagnostics",
@@ -224,7 +237,7 @@ def test_evaluator_reports_retrieved_evidence_excluded_by_real_context_selection
     )
 
     report = evaluation.evaluate_dataset(  # type: ignore[arg-type]
-        object(), dataset, "dataset-hash", "fixture"
+        object(), dataset, "dataset-hash", "fixture", mode=mode  # type: ignore[arg-type]
     )
 
     case_report = report["cases"][0]
@@ -259,7 +272,7 @@ class ReadOnlySession:
 
     def execute(self, statement: object) -> None:
         rendered = str(statement)
-        assert rendered == "SET TRANSACTION READ ONLY"
+        assert rendered == "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
         self.statements.append(rendered)
 
     def add(self, value: object) -> None:
@@ -272,9 +285,11 @@ class ReadOnlySession:
         pytest.fail("read-only evaluator must not commit")
 
 
+@pytest.mark.parametrize("mode", ["dense", "lexical", "hybrid"])
 def test_default_evaluator_sets_read_only_transaction_and_makes_no_provider_call(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    mode: str,
 ) -> None:
     session = ReadOnlySession()
     dataset = SimpleNamespace()
@@ -287,7 +302,9 @@ def test_default_evaluator_sets_read_only_transaction_and_makes_no_provider_call
     monkeypatch.setattr(
         evaluate_retrieval,
         "evaluate_dataset",
-        lambda db, loaded, digest, repository, depth: {"metrics": {}},
+        lambda db, loaded, digest, repository, depth, **kwargs: (
+            {"metrics": {}} if kwargs["mode"] == mode else pytest.fail("wrong mode")
+        ),
     )
     monkeypatch.setattr(
         rag,
@@ -295,8 +312,8 @@ def test_default_evaluator_sets_read_only_transaction_and_makes_no_provider_call
         lambda *args: pytest.fail("evaluation must not create an LLM client"),
     )
 
-    report = evaluate_retrieval.run(tmp_path / "dataset.json", "fixture", 10)
+    report = evaluate_retrieval.run(tmp_path / "dataset.json", "fixture", 10, mode)
 
     assert report == {"metrics": {}}
-    assert session.statements == ["SET TRANSACTION READ ONLY"]
+    assert session.statements == ["SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"]
     assert session.closed is True

@@ -8,6 +8,7 @@ from sqlalchemy import text
 
 from app.database import SessionLocal
 from app.evaluation import EvaluationError, evaluate_dataset, load_dataset
+from app.services.retrieval import RRF_BRANCH_DEPTH, RRF_CONSTANT, RetrievalMode
 
 
 DEFAULT_DATASET = (
@@ -38,6 +39,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Scoped candidate depth, from 10 to 50.",
     )
     parser.add_argument(
+        "--mode",
+        choices=("dense", "lexical", "hybrid"),
+        default="dense",
+        help="Explicit retrieval experiment mode; dense remains the default.",
+    )
+    parser.add_argument(
+        "--branch-depth", type=int, default=RRF_BRANCH_DEPTH,
+        help="Candidates per branch in hybrid mode (default: 50).",
+    )
+    parser.add_argument(
+        "--rrf-constant", type=int, default=RRF_CONSTANT,
+        help="Positive RRF rank constant in hybrid mode (default: 60).",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=None,
@@ -50,18 +65,24 @@ def run(
     dataset_path: Path,
     repository: str,
     candidate_depth: int,
+    mode: RetrievalMode = "dense",
+    branch_depth: int = RRF_BRANCH_DEPTH,
+    rrf_constant: int = RRF_CONSTANT,
 ) -> dict[str, object]:
     """Run read-only scoring against an existing compatible corpus."""
 
     dataset, dataset_hash = load_dataset(dataset_path)
     with SessionLocal() as db:
-        db.execute(text("SET TRANSACTION READ ONLY"))
+        db.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"))
         return evaluate_dataset(
             db,
             dataset,
             dataset_hash,
             repository,
             candidate_depth,
+            mode=mode,
+            branch_depth=branch_depth,
+            rrf_constant=rrf_constant,
         )
 
 
@@ -69,7 +90,14 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
     try:
-        report = run(args.dataset, args.repository, args.candidate_depth)
+        report = run(
+            args.dataset,
+            args.repository,
+            args.candidate_depth,
+            args.mode,
+            args.branch_depth,
+            args.rrf_constant,
+        )
     except (EvaluationError, OSError, ValueError) as exc:
         parser.error(str(exc))
 
