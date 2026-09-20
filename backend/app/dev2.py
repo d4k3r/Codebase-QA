@@ -6,6 +6,8 @@ No retrieval, database, embedding inference, or provider calls belong here.
 from __future__ import annotations
 
 import ast
+import hashlib
+import json
 import re
 import subprocess
 from collections import Counter
@@ -15,7 +17,7 @@ from typing import Callable, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.holdout import Candidate, Span, canonical_hash, validate_sources
+from app.holdout import Candidate, FrozenCorpus, Span, canonical_hash, validate_sources
 
 
 OverlapLevel = Literal["NONE", "LOW", "MATERIAL"]
@@ -63,6 +65,93 @@ class Dev2Candidates(BaseModel):
         if len(ids) != len(set(ids)):
             raise ValueError("DEV2 candidate IDs must be unique")
         return self
+
+
+def _hash_json(value: object) -> str:
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+class FinalDev2Case(Dev2Candidate):
+    """Audited label plus the repository/rationale fields used by the scorer."""
+
+    repository: Literal["codebase-qa-v2"]
+    rationale: str = Field(min_length=1)
+
+
+class FinalDev2(BaseModel):
+    """Audited development labels, with self-checking identity and counts.
+
+    This is development data, not an independent generalisation benchmark.
+    No retrieval or model inference is involved in loading it.
+    """
+
+    format_version: Literal[1]
+    dataset_version: Literal["codebase-qa-v2-dev2-v1.0.0"]
+    dataset_status: Literal[
+        "Independently audited development set; for tuning, NOT an independent generalisation benchmark."
+    ]
+    source_revision: Literal["7a3b7b05087793975ae0a84d85e7d691d9f3352e"]
+    repository: Literal["codebase-qa-v2"]
+    embedding_model: Literal["sentence-transformers/all-MiniLM-L6-v2"]
+    effective_input_limit: Literal[256]
+    corpus: FrozenCorpus
+    candidate_pool_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    case_count: int
+    answerable_count: int
+    unanswerable_count: int
+    multi_evidence_count: int
+    long_chunk_count: int
+    required_evidence_unit_count: int
+    acceptable_span_count: int
+    category_counts: dict[str, int]
+    tag_counts: dict[str, int]
+    dev1_overlap_counts: dict[str, int]
+    holdout_overlap_counts: dict[str, int]
+    case_set_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    dataset_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    cases: list[FinalDev2Case] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def consistent(self) -> "FinalDev2":
+        cases = self.cases
+        if len({case.case_id for case in cases}) != len(cases):
+            raise ValueError("Final DEV2 case IDs must be unique")
+        if any(case.dev1_overlap == "MATERIAL" or case.holdout_overlap == "MATERIAL"
+               for case in cases):
+            raise ValueError("Final DEV2 cannot retain MATERIAL overlap")
+        if (self.corpus.repository != self.repository
+                or self.corpus.source_revision != self.source_revision
+                or any(case.repository != self.repository for case in cases)):
+            raise ValueError("Final DEV2 corpus/repository identity mismatch")
+        expected = {
+            "case_count": len(cases),
+            "answerable_count": sum(case.source_answerable for case in cases),
+            "unanswerable_count": sum(not case.source_answerable for case in cases),
+            "multi_evidence_count": sum(len(case.required_evidence) >= 2 for case in cases),
+            "long_chunk_count": sum("long_chunk" in case.secondary_tags for case in cases),
+            "required_evidence_unit_count": sum(len(case.required_evidence) for case in cases),
+            "acceptable_span_count": sum(
+                len(unit.acceptable_spans) for case in cases for unit in case.required_evidence
+            ),
+            "category_counts": dict(Counter(case.primary_category for case in cases)),
+            "tag_counts": dict(Counter(tag for case in cases for tag in case.secondary_tags)),
+            "dev1_overlap_counts": dict(Counter(case.dev1_overlap for case in cases)),
+            "holdout_overlap_counts": dict(Counter(case.holdout_overlap for case in cases)),
+        }
+        for key, value in expected.items():
+            if getattr(self, key) != value:
+                raise ValueError(f"Final DEV2 {key} does not match cases")
+        if self.case_set_hash != _hash_json([case.model_dump(mode="json") for case in cases]):
+            raise ValueError("Final DEV2 case-set hash does not match cases")
+        if self.dataset_hash != _hash_json(self.model_dump(mode="json", exclude={"dataset_hash"})):
+            raise ValueError("Final DEV2 dataset hash does not match payload")
+        return self
+
+
+def load_final_dev2(path: Path) -> FinalDev2:
+    return FinalDev2.model_validate_json(path.read_text(encoding="utf-8"))
 
 
 def load_dev2(path: Path) -> Dev2Candidates:

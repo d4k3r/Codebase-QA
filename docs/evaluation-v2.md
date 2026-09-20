@@ -102,12 +102,48 @@ dataset during its construction.**
 
 ## DEV2 candidate pool
 
-`backend/evaluation/datasets/codebase_qa_v2_dev2_candidates_v1.json` is new
-development material grounded in the same accepted Batch 2A source revision.
-Its review package is `docs/dev2-review.md`. It is **machine-prepared, pending
-independent audit, not frozen, and not scored**. DEV2 deliberately emphasizes
-multi-evidence ordering, candidate competition, cross-module behavior, and
-oversized source chunks; unlike the former holdout, it is intended for future
-development and tuning after review. Candidate overlap classifications against
-both DEV1 and the observed HOLDOUT are visible in the JSON and review package.
-Source and tokenizer checks do not run retrieval or call an answer provider.
+`backend/evaluation/datasets/codebase_qa_v2_dev2_candidates_v1.json` is the
+unchanged 45-case machine-prepared candidate pool (canonical hash
+`4ed6388ba299dbf7ae9dbbbca01d72cf46b4520dd26895605732d88463a872d6`).
+`docs/dev2-review.md` remains its original review package. The independent
+source-only audit is `docs/dev2-audit.md`: three cases accepted unchanged,
+35 edited and accepted, seven rejected. These files are provenance, not the
+final DEV2 labels.
+
+## Audited DEV2 development set
+
+`backend/evaluation/datasets/codebase_qa_v2_dev2_v1.json` is version
+`codebase-qa-v2-dev2-v1.0.0`, grounded at the accepted Batch 2A source revision
+`7a3b7b05087793975ae0a84d85e7d691d9f3352e`. It is **independently audited
+development data for future tuning**, not an independent generalisation test.
+It has 38 cases: 36 answerable, two unanswerable, 16 genuinely multi-evidence,
+60 required evidence units and 70 acceptable source spans. Sixteen cases have
+meaningfully late evidence in oversized accepted chunks; the separate
+`oversized_evidence_ids` field records physical accepted-symbol intersection,
+which is not itself a claim of truncation relevance. Five of the 38 cases
+directly concern evaluation infrastructure, so this remains a small,
+backend-heavy one-repository benchmark.
+
+- Dataset hash: `9b24fdf2a80c3135143f2a62f98cd5f792b1a921f71fbb858cfce2da7e067cae`
+- Case-set hash: `f835c2f4e4179c559d4dcaaba1d30df31569b5b4fa348f3c69708a5e7125eab1`
+- Categories: semantic/conceptual 15; architecture 3; cross-module 4;
+  configuration/constants 6; difficult near matches 4; multiple evidence 3;
+  exact identifier 1; unanswerable 2.
+- Audited overlap vs DEV1: 18 NONE, 20 LOW, zero MATERIAL. Vs HOLDOUT: 23
+  NONE, 15 LOW, zero MATERIAL. Shared files/low overlap are not automatically
+  duplicate question intent.
+
+The source-only finalisation and integrity check, from `backend/`, is:
+
+```bash
+.venv/bin/python -m scripts.freeze_audited_dev2 --check
+```
+
+It validates the candidate/audit identities, frozen Git source anchors,
+accepted Batch 2A chunk containment, counts, and hashes. It performs no
+retrieval, embedding inference, database write, or provider call. DEV2 is
+shaped for a **future** development evaluation against the recorded 212-row
+corpus manifest; no DEV2 retrieval/reranking evaluation was run while
+constructing it. The observed HOLDOUT V1 result remains immutable historical
+validation and must not be retuned against. The separate source-coverage
+challenge remains unchanged and outside retrieval-ranking denominators.

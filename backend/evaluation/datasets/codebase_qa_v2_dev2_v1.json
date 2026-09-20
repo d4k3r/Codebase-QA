@@ -1,0 +1,1970 @@
+{
+  "format_version": 1,
+  "dataset_version": "codebase-qa-v2-dev2-v1.0.0",
+  "dataset_status": "Independently audited development set; for tuning, NOT an independent generalisation benchmark.",
+  "source_revision": "7a3b7b05087793975ae0a84d85e7d691d9f3352e",
+  "repository": "codebase-qa-v2",
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "effective_input_limit": 256,
+  "corpus": {
+    "repository": "codebase-qa-v2",
+    "expected_chunk_count": 212,
+    "index_manifest_sha256": "86aa6028950355c88b68d57bb3fc027be3e414acfb5a3ea45e3d2b341d70995b",
+    "source_revision": "7a3b7b05087793975ae0a84d85e7d691d9f3352e",
+    "chunking_identifier": "python-ast-symbols-companions-config-text-v2"
+  },
+  "candidate_pool_hash": "4ed6388ba299dbf7ae9dbbbca01d72cf46b4520dd26895605732d88463a872d6",
+  "case_count": 38,
+  "answerable_count": 36,
+  "unanswerable_count": 2,
+  "multi_evidence_count": 16,
+  "long_chunk_count": 16,
+  "required_evidence_unit_count": 60,
+  "acceptable_span_count": 70,
+  "category_counts": {
+    "semantic_conceptual": 15,
+    "multiple_required_evidence": 3,
+    "cross_module_behavior": 4,
+    "architecture": 3,
+    "configuration_constants": 6,
+    "exact_identifier": 1,
+    "difficult_near_matches": 4,
+    "unanswerable_insufficient_context": 2
+  },
+  "tag_counts": {
+    "path_safety": 1,
+    "multi_evidence": 16,
+    "mixed_source": 1,
+    "long_chunk": 16,
+    "module_fallback": 1,
+    "failure_boundary": 4,
+    "boundary_crossing": 1,
+    "configuration_use": 1,
+    "near_match": 1,
+    "file_reading": 1,
+    "evaluation_safety": 2,
+    "reproducibility": 2,
+    "index_identity": 1,
+    "configuration": 1,
+    "navigation": 1,
+    "repository_scope": 3,
+    "context_selection": 2,
+    "candidate_competition": 1,
+    "empty_result": 1,
+    "determinism": 1,
+    "discovery": 1,
+    "embedding_validation": 1,
+    "source_coverage": 1,
+    "edge_case": 1,
+    "config_source": 1,
+    "provenance": 1,
+    "exact_token": 5,
+    "embedding_batch": 1,
+    "database_session": 1,
+    "database_setup": 1,
+    "provider_config": 3,
+    "chunk_identity": 1,
+    "distractor": 4,
+    "error_boundary": 1,
+    "input_validation": 1,
+    "http_error": 1,
+    "database_model": 1,
+    "later_source": 3,
+    "ast_metadata": 1,
+    "evaluation_metadata": 1,
+    "mixed_semantic_exact": 2,
+    "context_provenance": 1,
+    "ordinary_developer_question": 2,
+    "chunk_structure": 1,
+    "grounding": 1,
+    "unanswerable": 2,
+    "file_size_policy": 1,
+    "citation_validation": 1
+  },
+  "dev1_overlap_counts": {
+    "NONE": 18,
+    "LOW": 20
+  },
+  "holdout_overlap_counts": {
+    "LOW": 15,
+    "NONE": 23
+  },
+  "case_set_hash": "f835c2f4e4179c559d4dcaaba1d30df31569b5b4fa348f3c69708a5e7125eab1",
+  "dataset_hash": "9b24fdf2a80c3135143f2a62f98cd5f792b1a921f71fbb858cfce2da7e067cae",
+  "cases": [
+    {
+      "case_id": "dev2-multi-01",
+      "question": "If the indexing root itself is a symlink, how does discovery treat it differently from symlinked entries inside the tree?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "path_safety",
+        "multi_evidence"
+      ],
+      "source_answerable": true,
+      "expected_answer": "The requested root is resolved first; entries found during traversal are classified without following symlinks, so nested symlink entries are not descended or accepted as regular files.",
+      "required_evidence": [
+        {
+          "evidence_id": "root-resolution",
+          "why_required": "Establishes that a symlink supplied as the root is resolved before traversal.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/repository_loader.py",
+              "start_line": 31,
+              "end_line": 39,
+              "content_contains": [
+                "expanduser().resolve()"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "entry-no-follow",
+          "why_required": "Establishes that nested entries are classified without following links.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/repository_loader.py",
+              "start_line": 73,
+              "end_line": 109,
+              "content_contains": [
+                "resolve_repository_root(repository_path)",
+                "is_dir(follow_symlinks=False)",
+                "is_file(follow_symlinks=False)",
+                "visit(root)"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "LOW",
+      "multi_evidence_reason": "Root normalization and the caller's no-follow entry classification establish different halves of the contrast; neither alone suffices.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "entry-no-follow"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "The requested root is resolved first; entries found during traversal are classified without following symlinks, so nested symlink entries are not descended or accepted as regular files."
+    },
+    {
+      "case_id": "dev2-multi-02",
+      "question": "Do `python_files_discovered` and `rows_stored` count the same thing when indexing includes configuration files?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "mixed_source",
+        "long_chunk"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. `python_files_discovered` counts discovered paths whose suffix is `.py`. `rows_stored` counts prepared database rows, with one row constructed per prepared chunk, including chunks from configuration sources. Neither statistic is a count of all discovered files.",
+      "required_evidence": [
+        {
+          "evidence_id": "index-count-semantics",
+          "why_required": "The row-building loop and both counters establish their distinct meanings.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/storage.py",
+              "start_line": 55,
+              "end_line": 89,
+              "content_contains": [
+                "for chunk, embedding in zip(chunks, vectors, strict=True)",
+                "python_files_discovered=sum",
+                "rows_stored=len(rows)"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [
+        "index-count-semantics"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "No. `python_files_discovered` counts discovered paths whose suffix is `.py`. `rows_stored` counts prepared database rows, with one row constructed per prepared chunk, including chunks from configuration sources. Neither statistic is a count of all discovered files."
+    },
+    {
+      "case_id": "dev2-multi-03",
+      "question": "What happens to an assignment-only Python module between parsing and insertion into the vector table?",
+      "primary_category": "multiple_required_evidence",
+      "secondary_tags": [
+        "module_fallback",
+        "multi_evidence",
+        "long_chunk"
+      ],
+      "source_answerable": true,
+      "expected_answer": "With no top-level function or class, the parser emits one whole-module fallback chunk. Storage embeds its content, copies its metadata and vector into CodeChunk, then publishes the rows.",
+      "required_evidence": [
+        {
+          "evidence_id": "assignment-fallback",
+          "why_required": "Establishes the special representation for a module without supported definitions.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/chunker.py",
+              "start_line": 131,
+              "end_line": 146,
+              "content_contains": [
+                "if not symbol_nodes and tree.body",
+                "symbol_type=\"module\""
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "fallback-publication",
+          "why_required": "Establishes that prepared chunk text becomes a vector-backed stored row.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/storage.py",
+              "start_line": 55,
+              "end_line": 79,
+              "content_contains": [
+                "embed_texts([chunk.content for chunk in chunks])",
+                "embedding=embedding",
+                "db.commit()"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW",
+      "multi_evidence_reason": "Chunker's fallback representation and storage's committed publication are separate necessary steps.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "assignment-fallback",
+        "fallback-publication"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "With no top-level function or class, the parser emits one whole-module fallback chunk. Storage embeds its content, copies its metadata and vector into CodeChunk, then publishes the rows."
+    },
+    {
+      "case_id": "dev2-multi-04",
+      "question": "If embedding returns a different number of vectors than prepared chunks, can deletion occur before the error, and how does the index API report it?",
+      "primary_category": "multiple_required_evidence",
+      "secondary_tags": [
+        "failure_boundary",
+        "boundary_crossing",
+        "multi_evidence",
+        "long_chunk"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. Storage raises StorageError on the count mismatch before the later DELETE. The index route catches StorageError and returns a generic HTTP 500.",
+      "required_evidence": [
+        {
+          "evidence_id": "mismatch-before-delete",
+          "why_required": "Shows that the count mismatch raises before the later destructive statement.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/storage.py",
+              "start_line": 55,
+              "end_line": 82,
+              "content_contains": [
+                "len(vectors) != len(chunks)",
+                "raise StorageError",
+                "db.execute(delete(CodeChunk)"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "storage-http-error",
+          "why_required": "Shows the API translation of StorageError.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/api/routes.py",
+              "start_line": 76,
+              "end_line": 78,
+              "content_contains": [
+                "StorageError",
+                "status_code=500"
+              ]
+            },
+            {
+              "file_path": "backend/tests/test_api.py",
+              "start_line": 136,
+              "end_line": 155,
+              "content_contains": [
+                "StorageError",
+                "response.status_code == 500"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW",
+      "multi_evidence_reason": "Storage's before-delete mismatch guard and the HTTP translation answer different halves of the question.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "mismatch-before-delete",
+        "storage-http-error"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "No. Storage raises StorageError on the count mismatch before the later DELETE. The index route catches StorageError and returns a generic HTTP 500."
+    },
+    {
+      "case_id": "dev2-multi-05",
+      "question": "Which environment variable controls the FastAPI title, and where is that setting applied?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": [
+        "configuration_use",
+        "multi_evidence"
+      ],
+      "source_answerable": true,
+      "expected_answer": "`APP_NAME` populates `Settings.app_name`; `main.py` passes `get_settings().app_name` as the FastAPI title.",
+      "required_evidence": [
+        {
+          "evidence_id": "app-name-setting",
+          "why_required": "Defines the setting and environment alias.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/config.py",
+              "start_line": 30,
+              "end_line": 30,
+              "content_contains": [
+                "validation_alias=\"APP_NAME\""
+              ]
+            },
+            {
+              "file_path": ".env.example",
+              "start_line": 4,
+              "end_line": 5,
+              "content_contains": [
+                "APP_NAME=Codebase QA V2"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "fastapi-title-use",
+          "why_required": "Shows the setting being consumed at app construction.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/main.py",
+              "start_line": 8,
+              "end_line": 10,
+              "content_contains": [
+                "FastAPI(title=get_settings().app_name)"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": "The environment alias and FastAPI construction are independently needed to connect configuration to title.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "app-name-setting"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "`APP_NAME` populates `Settings.app_name`; `main.py` passes `get_settings().app_name` as the FastAPI title."
+    },
+    {
+      "case_id": "dev2-multi-07",
+      "question": "Does Python-source decoding follow the same screening path as allowlisted configuration files during indexing?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": [
+        "near_match",
+        "file_reading",
+        "multi_evidence",
+        "long_chunk"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. Discovery samples config candidates for NUL/UTF-8, while discovered Python files are passed to the Python chunker, whose full read_text UTF-8 operation raises SourceReadError on decoding failure.",
+      "required_evidence": [
+        {
+          "evidence_id": "config-sample-screen",
+          "why_required": "Shows the discovery-time screening applied to config candidates.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/repository_loader.py",
+              "start_line": 49,
+              "end_line": 63,
+              "content_contains": [
+                "source_file.read(4096)",
+                "sample.decode(\"utf-8\")"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "config-only-screen-branch",
+          "why_required": "Shows that the sample text check is confined to discovered non-Python config candidates.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/repository_loader.py",
+              "start_line": 92,
+              "end_line": 101,
+              "content_contains": [
+                "entry.name.endswith(\".py\")",
+                "_is_utf8_text_file(path)"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "python-full-read",
+          "why_required": "Shows the distinct full Python-source decoding and error boundary.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/chunker.py",
+              "start_line": 116,
+              "end_line": 121,
+              "content_contains": [
+                "path.read_text(encoding=\"utf-8\")",
+                "SourceReadError"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "python-chunker-dispatch",
+          "why_required": "Storage dispatches admitted .py paths to the Python chunker, not the config chunker.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/storage.py",
+              "start_line": 36,
+              "end_line": 43,
+              "content_contains": [
+                "file_path.suffix == \".py\"",
+                "chunk_python_file"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW",
+      "multi_evidence_reason": "Sampling, config-only admission, Python dispatch, and complete Python reading establish the two paths together.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "config-only-screen-branch",
+        "python-full-read"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "No. Discovery samples config candidates for NUL/UTF-8, while discovered Python files are passed to the Python chunker, whose full read_text UTF-8 operation raises SourceReadError on decoding failure."
+    },
+    {
+      "case_id": "dev2-multi-08",
+      "question": "If a completion has no choices or empty answer content, how does `/ask` report the failure?",
+      "primary_category": "multiple_required_evidence",
+      "secondary_tags": [
+        "failure_boundary",
+        "multi_evidence",
+        "long_chunk"
+      ],
+      "source_answerable": true,
+      "expected_answer": "An empty choices list triggers the missing-answer `RAGGenerationError`; falsy message content triggers the separate empty-answer `RAGGenerationError`. The `/ask` route translates either into HTTP 502 with the generic detail `LLM generation failed.`",
+      "required_evidence": [
+        {
+          "evidence_id": "malformed-completion",
+          "why_required": "Shows the service-level error raised for a missing/empty answer.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 136,
+              "end_line": 142,
+              "content_contains": [
+                "RAGGenerationError",
+                "LLM returned an empty answer"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "generation-http-status",
+          "why_required": "Shows how the route translates the service error to HTTP.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/api/routes.py",
+              "start_line": 113,
+              "end_line": 115,
+              "content_contains": [
+                "RAGGenerationError",
+                "status_code=502"
+              ]
+            },
+            {
+              "file_path": "backend/tests/test_api.py",
+              "start_line": 210,
+              "end_line": 224,
+              "content_contains": [
+                "RAGGenerationError",
+                "response.status_code == 502"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW",
+      "multi_evidence_reason": "Completion-shape failure creation and HTTP translation are separate required facts.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "malformed-completion",
+        "generation-http-status"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "An empty choices list triggers the missing-answer `RAGGenerationError`; falsy message content triggers the separate empty-answer `RAGGenerationError`. The `/ask` route translates either into HTTP 502 with the generic detail `LLM generation failed.`"
+    },
+    {
+      "case_id": "dev2-architecture-01",
+      "question": "What separates the explicitly write-enabled evaluation-corpus preparation path from the default read-only scorer?",
+      "primary_category": "architecture",
+      "secondary_tags": [
+        "evaluation_safety",
+        "multi_evidence"
+      ],
+      "source_answerable": true,
+      "expected_answer": "Preparation requires `--confirm-write`, compares it with the expected confirmation constant, and rejects a mismatch before calling `index_repository`. The scorer marks its transaction read-only before calling `evaluate_dataset`.",
+      "required_evidence": [
+        {
+          "evidence_id": "write-gate",
+          "why_required": "Shows the explicit write confirmation and indexing call.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/scripts/prepare_evaluation_corpus.py",
+              "start_line": 13,
+              "end_line": 30,
+              "content_contains": [
+                "--confirm-write",
+                "args.confirm_write != CONFIRMATION",
+                "index_repository"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "readonly-score",
+          "why_required": "Shows read-only transaction setup in the scorer.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/scripts/evaluate_retrieval.py",
+              "start_line": 49,
+              "end_line": 65,
+              "content_contains": [
+                "SET TRANSACTION READ ONLY",
+                "evaluate_dataset"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": "The write-gated preparer and read-only scorer are separate entry points with different database permissions.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [],
+      "repository": "codebase-qa-v2",
+      "rationale": "Preparation requires `--confirm-write`, compares it with the expected confirmation constant, and rejects a mismatch before calling `index_repository`. The scorer marks its transaction read-only before calling `evaluate_dataset`."
+    },
+    {
+      "case_id": "dev2-architecture-02",
+      "question": "Why can a prepared corpus keep the same manifest after row IDs change?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "reproducibility",
+        "index_identity"
+      ],
+      "source_answerable": true,
+      "expected_answer": "For the same ordered source records, `compute_index_manifest` hashes repository, path, symbol metadata, line bounds and content, while excluding row IDs and vectors. Changing only those excluded values leaves the manifest unchanged.",
+      "required_evidence": [
+        {
+          "evidence_id": "manifest-record-fields",
+          "why_required": "The manifest code shows exactly which fields participate.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/evaluation.py",
+              "start_line": 206,
+              "end_line": 224,
+              "content_contains": [
+                "\"repository\": chunk.repository",
+                "\"content\": chunk.content"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [],
+      "repository": "codebase-qa-v2",
+      "rationale": "For the same ordered source records, `compute_index_manifest` hashes repository, path, symbol metadata, line bounds and content, while excluding row IDs and vectors. Changing only those excluded values leaves the manifest unchanged."
+    },
+    {
+      "case_id": "dev2-architecture-03",
+      "question": "Before evaluation scores any query, which prepared-corpus mismatches are rejected?",
+      "primary_category": "architecture",
+      "secondary_tags": [
+        "reproducibility",
+        "failure_boundary",
+        "multi_evidence",
+        "long_chunk"
+      ],
+      "source_answerable": true,
+      "expected_answer": "Before iterating over cases and calling search, evaluation validates repository scope, nonempty corpus rows, expected chunk count, manifest hash and chunking identifier. Blank corpus scope raises `EvaluationError`; the listed corpus mismatches raise `CorpusManifestMismatch`.",
+      "required_evidence": [
+        {
+          "evidence_id": "manifest-validation",
+          "why_required": "The validation branch lists the fail-closed corpus checks.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/evaluation.py",
+              "start_line": 227,
+              "end_line": 262,
+              "content_contains": [
+                "expected_chunk_count",
+                "index_manifest_sha256",
+                "CHUNKING_IDENTIFIER"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "evaluation-preflight-order",
+          "why_required": "The caller validates the corpus before entering the search loop.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/evaluation.py",
+              "start_line": 529,
+              "end_line": 544,
+              "content_contains": [
+                "validate_corpus_manifest",
+                "for case in dataset.cases",
+                "search_code"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": "The validator's checks and its invocation before the case-search loop are both necessary.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "manifest-validation",
+        "evaluation-preflight-order"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "Before iterating over cases and calling search, evaluation validates repository scope, nonempty corpus rows, expected chunk count, manifest hash and chunking identifier. Blank corpus scope raises `EvaluationError`; the listed corpus mismatches raise `CorpusManifestMismatch`."
+    },
+    {
+      "case_id": "dev2-architecture-05",
+      "question": "Why does starting the backend from a different working directory not change where its .env file is sought?",
+      "primary_category": "configuration_constants",
+      "secondary_tags": [
+        "configuration",
+        "navigation",
+        "multi_evidence"
+      ],
+      "source_answerable": true,
+      "expected_answer": "PROJECT_ROOT is derived from config.py's own resolved path; ENV_FILE is PROJECT_ROOT/.env and is passed to the Settings configuration.",
+      "required_evidence": [
+        {
+          "evidence_id": "env-path-definition",
+          "why_required": "Defines the project-relative .env path.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/config.py",
+              "start_line": 11,
+              "end_line": 12,
+              "content_contains": [
+                "Path(__file__).resolve().parents[2]",
+                "ENV_FILE"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "settings-env-path",
+          "why_required": "Settings uses that resolved path, independent of cwd.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/config.py",
+              "start_line": 18,
+              "end_line": 24,
+              "content_contains": [
+                "env_file=ENV_FILE"
+              ]
+            },
+            {
+              "file_path": "backend/tests/test_config.py",
+              "start_line": 9,
+              "end_line": 13,
+              "content_contains": [
+                "ENV_FILE"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": "The project-relative path definition and its use by Settings are separate accepted source chunks.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "settings-env-path"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "PROJECT_ROOT is derived from config.py's own resolved path; ENV_FILE is PROJECT_ROOT/.env and is passed to the Settings configuration."
+    },
+    {
+      "case_id": "dev2-architecture-06",
+      "question": "How does dataset validation reject cases assigned to a different repository from the declared corpus?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "repository_scope",
+        "evaluation_safety"
+      ],
+      "source_answerable": true,
+      "expected_answer": "`EvaluationDataset.validate_cases` compares each case's repository with the corpus repository and raises `ValueError` listing mismatched case IDs.",
+      "required_evidence": [
+        {
+          "evidence_id": "case-corpus-consistency",
+          "why_required": "The dataset model enforces matching repository identities.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/evaluation.py",
+              "start_line": 95,
+              "end_line": 109,
+              "content_contains": [
+                "case.repository != self.corpus.repository",
+                "Cases use a repository other than"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [],
+      "repository": "codebase-qa-v2",
+      "rationale": "`EvaluationDataset.validate_cases` compares each case's repository with the corpus repository and raises `ValueError` listing mismatched case IDs."
+    },
+    {
+      "case_id": "dev2-semantic-01",
+      "question": "If the first retrieved chunk is too large for the answer context, can a later smaller chunk still be included?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "context_selection",
+        "candidate_competition"
+      ],
+      "source_answerable": true,
+      "expected_answer": "Yes. build_context skips a chunk whose complete section exceeds the remaining character budget and continues iterating later candidates.",
+      "required_evidence": [
+        {
+          "evidence_id": "context-skip-continue",
+          "why_required": "The loop uses continue rather than stopping at the first over-budget chunk.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 49,
+              "end_line": 62,
+              "content_contains": [
+                "if used + required > MAX_CONTEXT_CHARACTERS:",
+                "continue",
+                "included_chunks.append(chunk)"
+              ]
+            },
+            {
+              "file_path": "backend/tests/test_rag.py",
+              "start_line": 32,
+              "end_line": 62,
+              "content_contains": [
+                "large_source not in context.included_chunks",
+                "context.included_chunks == [small_source]"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [
+        "context-skip-continue"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "Yes. build_context skips a chunk whose complete section exceeds the remaining character budget and continues iterating later candidates."
+    },
+    {
+      "case_id": "dev2-semantic-02",
+      "question": "When no retrieved chunk fits the context budget, does answer generation stop or still call the provider, and with what context?",
+      "primary_category": "architecture",
+      "secondary_tags": [
+        "context_selection",
+        "empty_result",
+        "multi_evidence",
+        "long_chunk"
+      ],
+      "source_answerable": true,
+      "expected_answer": "With valid configuration and successful retrieval, `build_context` returns `No repository context was retrieved.` and an empty included-chunk list. `answer_question` still constructs the prompt and calls the provider; there is no early return for this no-fitting-context condition.",
+      "required_evidence": [
+        {
+          "evidence_id": "empty-context-construction",
+          "why_required": "Shows the placeholder and empty included set.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 42,
+              "end_line": 67,
+              "content_contains": [
+                "No repository context was retrieved.",
+                "included_chunks=included_chunks"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "provider-continuation",
+          "why_required": "Shows prompt/client call continues after context building.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 119,
+              "end_line": 130,
+              "content_contains": [
+                "build_context",
+                "client.chat.completions.create"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": "The no-fitting-context return and the later provider-call continuation are separate necessary facts.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "provider-continuation"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "With valid configuration and successful retrieval, `build_context` returns `No repository context was retrieved.` and an empty included-chunk list. `answer_question` still constructs the prompt and calls the provider; there is no early return for this no-fitting-context condition."
+    },
+    {
+      "case_id": "dev2-semantic-03",
+      "question": "How does discovery guarantee repository-relative POSIX path ordering, rather than merely the order produced by walking each directory?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "determinism",
+        "discovery",
+        "long_chunk"
+      ],
+      "source_answerable": true,
+      "expected_answer": "After traversal, it sorts the collected paths using `path.relative_to(root).as_posix()` as the key.",
+      "required_evidence": [
+        {
+          "evidence_id": "relative-source-sort",
+          "why_required": "Shows both entry ordering and the final relative-path sort.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/repository_loader.py",
+              "start_line": 107,
+              "end_line": 109,
+              "content_contains": [
+                "path.relative_to(root).as_posix()"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [
+        "relative-source-sort"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "After traversal, it sorts the collected paths using `path.relative_to(root).as_posix()` as the key."
+    },
+    {
+      "case_id": "dev2-semantic-04",
+      "question": "Where is each encoded vector checked for dimensionality, and how is that check enforced before batch embeddings are returned?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "embedding_validation",
+        "failure_boundary",
+        "multi_evidence"
+      ],
+      "source_answerable": true,
+      "expected_answer": "`_validate_vectors` checks every vector against `EMBEDDING_DIMENSION` and raises `EmbeddingError` on a mismatch. `embed_texts` invokes this validator before returning the encoded batch.",
+      "required_evidence": [
+        {
+          "evidence_id": "per-vector-dimension-check",
+          "why_required": "Shows validation of each encoded vector and the failure class.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/embeddings.py",
+              "start_line": 39,
+              "end_line": 46,
+              "content_contains": [
+                "for index, vector in enumerate(vectors)",
+                "raise EmbeddingError"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "validator-called-before-return",
+          "why_required": "Shows embed_texts actually invokes vector validation before returning the batch.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/embeddings.py",
+              "start_line": 48,
+              "end_line": 68,
+              "content_contains": [
+                "_validate_vectors(vectors)",
+                "return vectors"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW",
+      "multi_evidence_reason": "The dimension guard and embed_texts calling it before return are separate necessary facts.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [],
+      "repository": "codebase-qa-v2",
+      "rationale": "`_validate_vectors` checks every vector against `EMBEDDING_DIMENSION` and raises `EmbeddingError` on a mismatch. `embed_texts` invokes this validator before returning the encoded batch."
+    },
+    {
+      "case_id": "dev2-semantic-05",
+      "question": "Will a Python file containing only comments be emitted as a module fallback chunk?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "source_coverage",
+        "edge_case",
+        "long_chunk"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. The fallback requires a nonempty AST body as well as nonblank source; a comment-only file has no statements, so the returned chunk list is empty.",
+      "required_evidence": [
+        {
+          "evidence_id": "fallback-body-guard",
+          "why_required": "The fallback's tree.body condition excludes comment-only modules.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/chunker.py",
+              "start_line": 131,
+              "end_line": 194,
+              "content_contains": [
+                "if not symbol_nodes and tree.body and source.strip():",
+                "return chunks"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [
+        "fallback-body-guard"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "No. The fallback requires a nonempty AST body as well as nonblank source; a comment-only file has no statements, so the returned chunk list is empty."
+    },
+    {
+      "case_id": "dev2-semantic-06",
+      "question": "How does config chunking preserve original blank/comment lines, and when can a whitespace-only group be dropped?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "config_source",
+        "provenance",
+        "multi_evidence",
+        "long_chunk"
+      ],
+      "source_answerable": true,
+      "expected_answer": "Line pieces preserve original characters, including line endings, and emitted groups join those pieces without reconstructing text. Comments are non-whitespace and are retained in emitted groups. An entirely whitespace-only file produces no chunks, and a pending group containing only whitespace is discarded when flushed; therefore not every blank character is guaranteed to survive independently of chunk boundaries.",
+      "required_evidence": [
+        {
+          "evidence_id": "original-line-pieces",
+          "why_required": "Shows exact line characters and line endings are retained.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/text_chunker.py",
+              "start_line": 11,
+              "end_line": 22,
+              "content_contains": [
+                "splitlines(keepends=True)",
+                "line"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "whitespace-group-flush",
+          "why_required": "Shows blank-file and pending-group filtering, plus original-text join.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/text_chunker.py",
+              "start_line": 46,
+              "end_line": 76,
+              "content_contains": [
+                "if not source.strip():",
+                "content=\"\".join",
+                "if pending and \"\".join(text for _, text in pending).strip()"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": "Line-piece preservation and group-level whitespace filtering jointly answer the qualified behaviour.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "whitespace-group-flush"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "Line pieces preserve original characters, including line endings, and emitted groups join those pieces without reconstructing text. Comments are non-whitespace and are retained in emitted groups. An entirely whitespace-only file produces no chunks, and a pending group containing only whitespace is discarded when flushed; therefore not every blank character is guaranteed to survive independently of chunk boundaries."
+    },
+    {
+      "case_id": "dev2-exact-01",
+      "question": "Which constant controls the `batch_size` passed to `model.encode`, and what is its value?",
+      "primary_category": "configuration_constants",
+      "secondary_tags": [
+        "exact_token",
+        "embedding_batch",
+        "multi_evidence"
+      ],
+      "source_answerable": true,
+      "expected_answer": "`DEFAULT_BATCH_SIZE` is 32, and `embed_texts` supplies that constant as `model.encode`'s `batch_size`.",
+      "required_evidence": [
+        {
+          "evidence_id": "batch-size-definition",
+          "why_required": "Defines the constant's value.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/embeddings.py",
+              "start_line": 9,
+              "end_line": 10,
+              "content_contains": [
+                "DEFAULT_BATCH_SIZE = 32"
+              ]
+            },
+            {
+              "file_path": "backend/tests/test_embeddings.py",
+              "start_line": 26,
+              "end_line": 35,
+              "content_contains": [
+                "batch_size"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "batch-size-use",
+          "why_required": "Shows it is actually passed to model.encode.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/embeddings.py",
+              "start_line": 54,
+              "end_line": 62,
+              "content_contains": [
+                "model.encode(",
+                "batch_size=DEFAULT_BATCH_SIZE"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": "The constant's value and its separate use in model.encode are both needed.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [],
+      "repository": "codebase-qa-v2",
+      "rationale": "`DEFAULT_BATCH_SIZE` is 32, and `embed_texts` supplies that constant as `model.encode`'s `batch_size`."
+    },
+    {
+      "case_id": "dev2-exact-02",
+      "question": "How is the synchronous session factory configured with respect to autoflush and autocommit?",
+      "primary_category": "configuration_constants",
+      "secondary_tags": [
+        "exact_token",
+        "database_session"
+      ],
+      "source_answerable": true,
+      "expected_answer": "SessionLocal binds to engine with autoflush=False and autocommit=False.",
+      "required_evidence": [
+        {
+          "evidence_id": "sessionmaker-options",
+          "why_required": "The factory declaration carries both options.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/database.py",
+              "start_line": 11,
+              "end_line": 12,
+              "content_contains": [
+                "autoflush=False",
+                "autocommit=False"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [],
+      "repository": "codebase-qa-v2",
+      "rationale": "SessionLocal binds to engine with autoflush=False and autocommit=False."
+    },
+    {
+      "case_id": "dev2-exact-03",
+      "question": "What command is configured under Compose's `healthcheck.test`, and which database/user does it probe?",
+      "primary_category": "configuration_constants",
+      "secondary_tags": [
+        "exact_token",
+        "database_setup"
+      ],
+      "source_answerable": true,
+      "expected_answer": "The `CMD-SHELL` healthcheck invokes `pg_isready` using the configured `POSTGRES_USER` and `POSTGRES_DB`.",
+      "required_evidence": [
+        {
+          "evidence_id": "postgres-healthcheck",
+          "why_required": "The Compose healthcheck lists its command and timing.",
+          "acceptable_spans": [
+            {
+              "file_path": "docker-compose.yml",
+              "start_line": 13,
+              "end_line": 17,
+              "content_contains": [
+                "CMD-SHELL",
+                "pg_isready",
+                "POSTGRES_USER",
+                "POSTGRES_DB"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [],
+      "repository": "codebase-qa-v2",
+      "rationale": "The `CMD-SHELL` healthcheck invokes `pg_isready` using the configured `POSTGRES_USER` and `POSTGRES_DB`."
+    },
+    {
+      "case_id": "dev2-exact-04",
+      "question": "What values does Settings allow for `LLM_MAX_RETRIES`, including the default and maximum?",
+      "primary_category": "configuration_constants",
+      "secondary_tags": [
+        "exact_token",
+        "provider_config",
+        "long_chunk"
+      ],
+      "source_answerable": true,
+      "expected_answer": "An integer from 0 through 5 inclusive; the default is 2.",
+      "required_evidence": [
+        {
+          "evidence_id": "retry-setting-bounds",
+          "why_required": "Shows both default and upper validation bound.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/config.py",
+              "start_line": 45,
+              "end_line": 50,
+              "content_contains": [
+                "default=2",
+                "le=5"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [
+        "retry-setting-bounds"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "An integer from 0 through 5 inclusive; the default is 2."
+    },
+    {
+      "case_id": "dev2-exact-05",
+      "question": "What structural label does the Python chunker give an async top-level function, rather than a regular function or class?",
+      "primary_category": "exact_identifier",
+      "secondary_tags": [
+        "exact_token",
+        "chunk_identity"
+      ],
+      "source_answerable": true,
+      "expected_answer": "An async top-level function receives the structural label `async_function`.",
+      "required_evidence": [
+        {
+          "evidence_id": "async-symbol-label",
+          "why_required": "The dispatch shows the distinct structural labels.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/chunker.py",
+              "start_line": 34,
+              "end_line": 39,
+              "content_contains": [
+                "ast.AsyncFunctionDef",
+                "return \"async_function\""
+              ]
+            },
+            {
+              "file_path": "backend/tests/test_chunker.py",
+              "start_line": 36,
+              "end_line": 45,
+              "content_contains": [
+                "async_function"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [],
+      "repository": "codebase-qa-v2",
+      "rationale": "An async top-level function receives the structural label `async_function`."
+    },
+    {
+      "case_id": "dev2-near-02",
+      "question": "Does the config chunker use the same error for a path outside the repository as for an unreadable file inside it?",
+      "primary_category": "difficult_near_matches",
+      "secondary_tags": [
+        "distractor",
+        "error_boundary"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. A path failing relative_to raises SourceFileError, while read_text failures raise the more specific SourceReadError.",
+      "required_evidence": [
+        {
+          "evidence_id": "config-path-versus-read",
+          "why_required": "The adjacent exception branches distinguish provenance validation from reading.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/text_chunker.py",
+              "start_line": 32,
+              "end_line": 44,
+              "content_contains": [
+                "raise SourceFileError",
+                "raise SourceReadError"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [
+        "config-path-versus-read"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "No. A path failing relative_to raises SourceFileError, while read_text failures raise the more specific SourceReadError."
+    },
+    {
+      "case_id": "dev2-near-03",
+      "question": "Can a search request containing only spaces reach a different validation boundary from an empty query string?",
+      "primary_category": "difficult_near_matches",
+      "secondary_tags": [
+        "distractor",
+        "input_validation",
+        "multi_evidence"
+      ],
+      "source_answerable": true,
+      "expected_answer": "Yes. With an otherwise valid request, an empty query fails `SearchRequest`'s minimum-length constraint. A whitespace-only query satisfies that length constraint, is forwarded through the search route and `search_code`, and is rejected when `embed_query` strips it.",
+      "required_evidence": [
+        {
+          "evidence_id": "search-schema-min-length",
+          "why_required": "An empty string fails HTTP request validation.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/schemas.py",
+              "start_line": 35,
+              "end_line": 40,
+              "content_contains": [
+                "query: str = Field(min_length=1)"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "search-route-forwarding",
+          "why_required": "The route forwards the query to the service.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/api/routes.py",
+              "start_line": 82,
+              "end_line": 90,
+              "content_contains": [
+                "search_code",
+                "request.query"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "search-service-embedding",
+          "why_required": "The service passes query text to embedding after scope checks.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/retrieval.py",
+              "start_line": 33,
+              "end_line": 49,
+              "content_contains": [
+                "embed_query",
+                "query"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "embedding-whitespace-guard",
+          "why_required": "The embedder strips and rejects whitespace-only text.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/embeddings.py",
+              "start_line": 71,
+              "end_line": 76,
+              "content_contains": [
+                "if not query.strip()",
+                "Query must not be empty"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW",
+      "multi_evidence_reason": "Schema, route, service, and embedder stages together establish the contrasting validation boundaries.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "search-service-embedding"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "Yes. With an otherwise valid request, an empty query fails `SearchRequest`'s minimum-length constraint. A whitespace-only query satisfies that length constraint, is forwarded through the search route and `search_code`, and is rejected when `embed_query` strips it."
+    },
+    {
+      "case_id": "dev2-near-04",
+      "question": "If repository traversal fails, does the indexing API use the same client-facing error message as a Python source read failure?",
+      "primary_category": "difficult_near_matches",
+      "secondary_tags": [
+        "distractor",
+        "http_error"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. RepositoryReadError produces 'Could not safely read the repository directories.'; SourceReadError produces 'Could not safely read the repository source files.' Both use HTTP 400.",
+      "required_evidence": [
+        {
+          "evidence_id": "distinct-read-http-details",
+          "why_required": "The route has separate branches and stable details.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/api/routes.py",
+              "start_line": 64,
+              "end_line": 73,
+              "content_contains": [
+                "RepositoryReadError",
+                "SourceReadError",
+                "repository directories.",
+                "repository source files."
+              ]
+            },
+            {
+              "file_path": "backend/tests/test_api.py",
+              "start_line": 158,
+              "end_line": 190,
+              "content_contains": [
+                "repository directories.",
+                "repository source files.",
+                "status_code"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [
+        "distinct-read-http-details"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "No. RepositoryReadError produces 'Could not safely read the repository directories.'; SourceReadError produces 'Could not safely read the repository source files.' Both use HTTP 400."
+    },
+    {
+      "case_id": "dev2-near-05",
+      "question": "Are repository and file path optional on stored code chunks in the same way symbol name is?",
+      "primary_category": "difficult_near_matches",
+      "secondary_tags": [
+        "distractor",
+        "database_model"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. repository and file_path are required non-null strings; only symbol_name is nullable.",
+      "required_evidence": [
+        {
+          "evidence_id": "nullable-vs-required-columns",
+          "why_required": "The ORM column declarations show different nullability.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/models.py",
+              "start_line": 17,
+              "end_line": 25,
+              "content_contains": [
+                "repository: Mapped[str]",
+                "file_path: Mapped[str]",
+                "symbol_name: Mapped[str | None]"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "LOW",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [],
+      "repository": "codebase-qa-v2",
+      "rationale": "No. repository and file_path are required non-null strings; only symbol_name is nullable."
+    },
+    {
+      "case_id": "dev2-long-01",
+      "question": "What happens if the AST reports no end-line location for a supported top-level symbol during chunking?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "later_source",
+        "ast_metadata",
+        "long_chunk"
+      ],
+      "source_answerable": true,
+      "expected_answer": "chunk_python_file raises SourceFileError rather than emitting a chunk with an invented end boundary.",
+      "required_evidence": [
+        {
+          "evidence_id": "symbol-endline-guard",
+          "why_required": "The supported-symbol branch explicitly checks end_lineno before slicing source.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/chunker.py",
+              "start_line": 175,
+              "end_line": 188,
+              "content_contains": [
+                "if node.end_lineno is None:",
+                "Missing end-line metadata"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [
+        "symbol-endline-guard"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "chunk_python_file raises SourceFileError rather than emitting a chunk with an invented end boundary."
+    },
+    {
+      "case_id": "dev2-long-04",
+      "question": "What upper bound applies to an operator-supplied LLM request timeout?",
+      "primary_category": "configuration_constants",
+      "secondary_tags": [
+        "long_chunk",
+        "later_source",
+        "provider_config"
+      ],
+      "source_answerable": true,
+      "expected_answer": "Settings.llm_timeout_seconds defaults to 30.0 seconds, must be positive, and cannot exceed 300 seconds.",
+      "required_evidence": [
+        {
+          "evidence_id": "timeout-upper-bound",
+          "why_required": "The Settings field declares its default and validation limit.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/config.py",
+              "start_line": 39,
+              "end_line": 44,
+              "content_contains": [
+                "default=30.0",
+                "le=300",
+                "LLM_TIMEOUT_SECONDS"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [
+        "timeout-upper-bound"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "Settings.llm_timeout_seconds defaults to 30.0 seconds, must be positive, and cannot exceed 300 seconds."
+    },
+    {
+      "case_id": "dev2-long-05",
+      "question": "What metadata can I use to reproduce an evaluation run and identify its source/model configuration?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "later_source",
+        "evaluation_metadata",
+        "long_chunk"
+      ],
+      "source_answerable": true,
+      "expected_answer": "The report records dataset identity/status and hashes, case-set hash, corpus manifest and pinned source revision, repository, application Git revision/dirty status, embedding identity/dimension, resolved model revision and effective limit when available, chunking identifier, candidate depth, context budget and package versions.",
+      "required_evidence": [
+        {
+          "evidence_id": "report-reproducibility-fields",
+          "why_required": "The late result-construction branch enumerates report metadata.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/evaluation.py",
+              "start_line": 612,
+              "end_line": 634,
+              "content_contains": [
+                "\"reproducibility\"",
+                "\"case_set_sha256\"",
+                "\"chunking_identifier\""
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [
+        "report-reproducibility-fields"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "The report records dataset identity/status and hashes, case-set hash, corpus manifest and pinned source revision, repository, application Git revision/dirty status, embedding identity/dimension, resolved model revision and effective limit when available, chunking identifier, candidate depth, context budget and package versions."
+    },
+    {
+      "case_id": "dev2-mixed-01",
+      "question": "When /ask receives a repository selection, through which request and service fields does it reach retrieval?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": [
+        "mixed_semantic_exact",
+        "multi_evidence",
+        "repository_scope"
+      ],
+      "source_answerable": true,
+      "expected_answer": "AskRequest carries an optional repository field; the route passes it to answer_question, which passes it into search_code.",
+      "required_evidence": [
+        {
+          "evidence_id": "ask-request-scope",
+          "why_required": "Shows the incoming field on the ask request model.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/schemas.py",
+              "start_line": 58,
+              "end_line": 63,
+              "content_contains": [
+                "class AskRequest",
+                "repository: str | None = None"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "ask-route-forwarding",
+          "why_required": "Shows the HTTP-to-service handoff.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/api/routes.py",
+              "start_line": 97,
+              "end_line": 108,
+              "content_contains": [
+                "answer_question(",
+                "request.repository"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "rag-retrieval-forwarding",
+          "why_required": "Shows the service-to-retriever handoff.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 96,
+              "end_line": 110,
+              "content_contains": [
+                "repository: str | None = None",
+                "search_code(db, question, top_k, repository)"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": "The request field, route mapping, and RAG retrieval call form three distinct handoffs.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "ask-route-forwarding",
+        "rag-retrieval-forwarding"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "AskRequest carries an optional repository field; the route passes it to answer_question, which passes it into search_code."
+    },
+    {
+      "case_id": "dev2-mixed-03",
+      "question": "For an unauthenticated local OpenAI-compatible server, how does `LLM_API_KEY` get from the documented placeholder setting into the created client?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": [
+        "mixed_semantic_exact",
+        "provider_config",
+        "multi_evidence",
+        "long_chunk"
+      ],
+      "source_answerable": true,
+      "expected_answer": "The example instructs the operator to use the placeholder accepted by that server. `LLM_API_KEY` populates `Settings.llm_api_key`; `_required_llm_config` extracts and strips it; `answer_question` passes the resulting key to `_create_client`; that helper supplies it as the OpenAI client's `api_key` option.",
+      "required_evidence": [
+        {
+          "evidence_id": "placeholder-key-guidance",
+          "why_required": "Documents the local-server placeholder instruction.",
+          "acceptable_spans": [
+            {
+              "file_path": ".env.example",
+              "start_line": 9,
+              "end_line": 13,
+              "content_contains": [
+                "placeholder API key",
+                "LLM_API_KEY="
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "llm-api-key-setting",
+          "why_required": "Maps LLM_API_KEY into Settings.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/config.py",
+              "start_line": 37,
+              "end_line": 37,
+              "content_contains": [
+                "validation_alias=\"LLM_API_KEY\""
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "required-key-extraction",
+          "why_required": "Validates and strips the key.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 70,
+              "end_line": 82,
+              "content_contains": [
+                "settings.llm_api_key",
+                "api_key"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "client-handoff",
+          "why_required": "Passes the extracted key to _create_client.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 107,
+              "end_line": 122,
+              "content_contains": [
+                "api_key",
+                "_create_client"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "client-key-option",
+          "why_required": "Supplies the key as the OpenAI client option.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 85,
+              "end_line": 93,
+              "content_contains": [
+                "\"api_key\": api_key",
+                "OpenAI(**options)"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW",
+      "multi_evidence_reason": "Documentation, Settings binding, validation, handoff, and client construction each supply a distinct step.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "llm-api-key-setting",
+        "client-handoff"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "The example instructs the operator to use the placeholder accepted by that server. `LLM_API_KEY` populates `Settings.llm_api_key`; `_required_llm_config` extracts and strips it; `answer_question` passes the resulting key to `_create_client`; that helper supplies it as the OpenAI client's `api_key` option."
+    },
+    {
+      "case_id": "dev2-mixed-04",
+      "question": "What source identity is shown for a chunk without a symbol name in the model context?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "context_provenance"
+      ],
+      "source_answerable": true,
+      "expected_answer": "build_context substitutes <module> for a missing symbol name and includes repository/file path, symbol type and line range in its source header.",
+      "required_evidence": [
+        {
+          "evidence_id": "module-context-header",
+          "why_required": "The header construction shows the fallback label and provenance fields.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 49,
+              "end_line": 54,
+              "content_contains": [
+                "chunk.symbol_name or \"<module>\"",
+                "chunk.repository",
+                "chunk.start_line"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [],
+      "repository": "codebase-qa-v2",
+      "rationale": "build_context substitutes <module> for a missing symbol name and includes repository/file path, symbol type and line range in its source header."
+    },
+    {
+      "case_id": "dev2-mixed-05",
+      "question": "Why does a valid but unknown repository name produce no scoped semantic hits instead of switching to a global search?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "repository_scope",
+        "long_chunk"
+      ],
+      "source_answerable": true,
+      "expected_answer": "A supplied nonblank repository becomes a SQL equality predicate. The service executes that scoped query and returns its rows; zero matching rows do not trigger an unscoped retry.",
+      "required_evidence": [
+        {
+          "evidence_id": "scoped-sql-predicate",
+          "why_required": "The search statement applies repository filtering prior to ranking and limiting.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/retrieval.py",
+              "start_line": 45,
+              "end_line": 82,
+              "content_contains": [
+                "statement.where(CodeChunk.repository == scope)",
+                "db.execute(statement)"
+              ]
+            },
+            {
+              "file_path": "backend/tests/test_retrieval.py",
+              "start_line": 67,
+              "end_line": 78,
+              "content_contains": [
+                "unknown",
+                "assert"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [
+        "scoped-sql-predicate"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "A supplied nonblank repository becomes a SQL equality predicate. The service executes that scoped query and returns its rows; zero matching rows do not trigger an unscoped retry."
+    },
+    {
+      "case_id": "dev2-ordinary-01",
+      "question": "Are methods inside a Python class emitted as separate chunks by the accepted AST policy?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "ordinary_developer_question",
+        "chunk_structure"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. The accepted policy emits top-level classes as class chunks; their methods remain inside those class chunks rather than becoming separate chunks.",
+      "required_evidence": [
+        {
+          "evidence_id": "top-level-only-loop",
+          "why_required": "The top-level node selection and chunk append show the class granularity.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/chunker.py",
+              "start_line": 131,
+              "end_line": 190,
+              "content_contains": [
+                "tree.body",
+                "ast.ClassDef",
+                "symbol_type=_symbol_type(node)"
+              ]
+            },
+            {
+              "file_path": "backend/tests/test_chunker.py",
+              "start_line": 10,
+              "end_line": 33,
+              "content_contains": [
+                "\"def multiply\" in chunks[2].content",
+                "chunk.symbol_name != \"multiply\""
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [
+        "top-level-only-loop"
+      ],
+      "repository": "codebase-qa-v2",
+      "rationale": "No. The accepted policy emits top-level classes as class chunks; their methods remain inside those class chunks rather than becoming separate chunks."
+    },
+    {
+      "case_id": "dev2-ordinary-02",
+      "question": "What instruction tells the answer provider to acknowledge insufficient repository evidence?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "ordinary_developer_question",
+        "grounding"
+      ],
+      "source_answerable": true,
+      "expected_answer": "SYSTEM_PROMPT tells the model to answer from supplied repository context, avoid invented behavior, and say clearly when context is insufficient.",
+      "required_evidence": [
+        {
+          "evidence_id": "insufficient-context-instruction",
+          "why_required": "The fixed system prompt carries the grounding instruction.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 13,
+              "end_line": 17,
+              "content_contains": [
+                "If the supplied context is insufficient, say so clearly."
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [],
+      "repository": "codebase-qa-v2",
+      "rationale": "SYSTEM_PROMPT tells the model to answer from supplied repository context, avoid invented behavior, and say clearly when context is insufficient."
+    },
+    {
+      "case_id": "dev2-unanswerable-01",
+      "question": "Where does indexing enforce a maximum byte size for each individual Python source file before embedding it?",
+      "primary_category": "unanswerable_insufficient_context",
+      "secondary_tags": [
+        "unanswerable",
+        "file_size_policy"
+      ],
+      "source_answerable": false,
+      "expected_answer": "No per-Python-file byte limit is configured or enforced by the frozen source. The config-chunk character cap is a chunking limit, not a Python-file ingestion limit.",
+      "required_evidence": [],
+      "missing_reason": "The frozen discovery/chunking/indexing path has no maximum byte size for an individual Python file.",
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "LOW",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [],
+      "repository": "codebase-qa-v2",
+      "rationale": "No per-Python-file byte limit is configured or enforced by the frozen source. The config-chunk character cap is a chunking limit, not a Python-file ingestion limit."
+    },
+    {
+      "case_id": "dev2-unanswerable-02",
+      "question": "Where does the backend verify that file-path citations written in an LLM answer refer to the returned source list?",
+      "primary_category": "unanswerable_insufficient_context",
+      "secondary_tags": [
+        "unanswerable",
+        "citation_validation"
+      ],
+      "source_answerable": false,
+      "expected_answer": "The frozen backend has no post-generation citation validator. It returns generated text and the supplied context's sources, but does not parse or check citations in the answer text.",
+      "required_evidence": [],
+      "missing_reason": "There is no answer-text citation parser or validator in the frozen RAG/API path.",
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE",
+      "multi_evidence_reason": null,
+      "one_unit_sufficient": null,
+      "oversized_evidence_ids": [],
+      "repository": "codebase-qa-v2",
+      "rationale": "The frozen backend has no post-generation citation validator. It returns generated text and the supplied context's sources, but does not parse or check citations in the answer text."
+    }
+  ]
+}
