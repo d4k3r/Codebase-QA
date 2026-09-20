@@ -1,0 +1,226 @@
+{
+  "format_version": 1,
+  "dataset_version": "codebase-qa-v2-source-coverage-challenge-v1.0.0",
+  "dataset_status": "Human-reviewed, independently audited, frozen.",
+  "cohort": "source_coverage_challenge",
+  "source_revision": "7a3b7b05087793975ae0a84d85e7d691d9f3352e",
+  "repository": "codebase-qa-v2",
+  "dev_dataset_hash": "eb095d8701955216171ad3463f6cfb2d7ce2ce44cf8aef47ceaf00c41edd2a8b",
+  "dev_case_set_hash": "97a85902564bdcfce9e5e85da38c0f1008cb3fc839296f2a3c4871e1f78a26af",
+  "candidate_pool_hash": "4b43650c5d60643d197fe33005823ce9c8f9570746d958dce0b845bf12ea88e7",
+  "index_manifest_sha256": "86aa6028950355c88b68d57bb3fc027be3e414acfb5a3ea45e3d2b341d70995b",
+  "corpus": {
+    "repository": "codebase-qa-v2",
+    "expected_chunk_count": 212,
+    "index_manifest_sha256": "86aa6028950355c88b68d57bb3fc027be3e414acfb5a3ea45e3d2b341d70995b",
+    "source_revision": "7a3b7b05087793975ae0a84d85e7d691d9f3352e",
+    "chunking_identifier": "python-ast-symbols-companions-config-text-v2"
+  },
+  "case_count": 5,
+  "answerable_count": 5,
+  "unanswerable_count": 0,
+  "multi_evidence_count": 2,
+  "category_counts": {
+    "semantic_conceptual": 1,
+    "filename_path": 2,
+    "cross_module_behavior": 2
+  },
+  "case_set_hash": "969ed3d972e14805b9acec3190e9ab62431ee2963ea81c8a5a90cf1b3c98a4d9",
+  "dataset_hash": "dc729a0d02c46afb72ba61e593733069647305dd2a03dd1c50bbe19fe51778eb",
+  "cases": [
+    {
+      "case_id": "holdout-semantic-05",
+      "question": "How does the Answer component render answer text as Markdown?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [],
+      "source_answerable": true,
+      "expected_answer": "It imports ReactMarkdown and passes answer as its children. The component does not explicitly inject raw HTML; this is not a broad sanitization guarantee.",
+      "required_evidence": [
+        {
+          "evidence_id": "answer-markdown-component",
+          "why_required": "Shows the import and rendering path.",
+          "acceptable_spans": [
+            {
+              "file_path": "frontend/src/components/Answer.tsx",
+              "start_line": 1,
+              "end_line": 19,
+              "content_contains": [
+                "import ReactMarkdown from \"react-markdown\"",
+                "<ReactMarkdown>{answer}</ReactMarkdown>"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "repository": "codebase-qa-v2",
+      "rationale": "It imports ReactMarkdown and passes answer as its children. The component does not explicitly inject raw HTML; this is not a broad sanitization guarantee."
+    },
+    {
+      "case_id": "holdout-path-01",
+      "question": "Which frontend source file issues the JSON POST /ask request?",
+      "primary_category": "filename_path",
+      "secondary_tags": [],
+      "source_answerable": true,
+      "expected_answer": "frontend/src/api.ts, inside askQuestion, uses fetch('/ask') with POST, JSON content type, and a serialized request body.",
+      "required_evidence": [
+        {
+          "evidence_id": "browser-ask-fetch",
+          "why_required": "The browser transport has the path, method, header, and JSON body.",
+          "acceptable_spans": [
+            {
+              "file_path": "frontend/src/api.ts",
+              "start_line": 40,
+              "end_line": 48,
+              "content_contains": [
+                "fetch(\"/ask\"",
+                "method: \"POST\"",
+                "application/json",
+                "JSON.stringify(request)"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "repository": "codebase-qa-v2",
+      "rationale": "frontend/src/api.ts, inside askQuestion, uses fetch('/ask') with POST, JSON content type, and a serialized request body."
+    },
+    {
+      "case_id": "holdout-path-02",
+      "question": "Which frontend file displays retrieved source line numbers beside a file path?",
+      "primary_category": "filename_path",
+      "secondary_tags": [],
+      "source_answerable": true,
+      "expected_answer": "frontend/src/components/SourceList.tsx displays repository/file_path and start/end line range.",
+      "required_evidence": [
+        {
+          "evidence_id": "source-card-provenance",
+          "why_required": "The source card renders path and line provenance.",
+          "acceptable_spans": [
+            {
+              "file_path": "frontend/src/components/SourceList.tsx",
+              "start_line": 17,
+              "end_line": 26,
+              "content_contains": [
+                "source.file_path",
+                "source.start_line"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "repository": "codebase-qa-v2",
+      "rationale": "frontend/src/components/SourceList.tsx displays repository/file_path and start/end line range."
+    },
+    {
+      "case_id": "holdout-cross-03",
+      "question": "How does the backend's declared /ask response schema compare with the browser's runtime checks for answer and source fields?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": [],
+      "source_answerable": true,
+      "expected_answer": "AskResponse declares an answer string and RetrievedChunkResponse sources. The browser checks the envelope and source fields, including nullable symbol name and numeric line/distance values. Browser numeric checks do not establish integer lines or valid line ordering.",
+      "required_evidence": [
+        {
+          "evidence_id": "backend-source-contract",
+          "why_required": "Declares the source record fields.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/schemas.py",
+              "start_line": 43,
+              "end_line": 51,
+              "content_contains": [
+                "class RetrievedChunkResponse",
+                "symbol_name: str | None",
+                "start_line: int",
+                "cosine_distance: float"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "backend-answer-contract",
+          "why_required": "Declares answer plus source list.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/schemas.py",
+              "start_line": 66,
+              "end_line": 68,
+              "content_contains": [
+                "class AskResponse",
+                "sources: list[RetrievedChunkResponse]"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "browser-runtime-guard",
+          "why_required": "Shows browser runtime checks and their numeric-only limit.",
+          "acceptable_spans": [
+            {
+              "file_path": "frontend/src/api.ts",
+              "start_line": 3,
+              "end_line": 31,
+              "content_contains": [
+                "isRetrievedSource",
+                "typeof value.start_line === \"number\"",
+                "typeof value.cosine_distance === \"number\"",
+                "value.sources.every"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "repository": "codebase-qa-v2",
+      "rationale": "AskResponse declares an answer string and RetrievedChunkResponse sources. The browser checks the envelope and source fields, including nullable symbol name and numeric line/distance values. Browser numeric checks do not establish integer lines or valid line ordering."
+    },
+    {
+      "case_id": "holdout-cross-05",
+      "question": "What checks do the form and page use to block blank submissions and submissions while a request is marked as loading?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": [],
+      "source_answerable": true,
+      "expected_answer": "The form checks trimmed emptiness/loading before invoking submission and disables its button. The page rechecks trimmed text/loading and sets loading before awaiting the request. This does not prove an unconditional concurrency guarantee.",
+      "required_evidence": [
+        {
+          "evidence_id": "form-submit-guard",
+          "why_required": "Shows the form checks and disabled state.",
+          "acceptable_spans": [
+            {
+              "file_path": "frontend/src/components/QuestionForm.tsx",
+              "start_line": 16,
+              "end_line": 40,
+              "content_contains": [
+                "question.trim()",
+                "!isLoading && !isEmpty",
+                "disabled={isLoading || isEmpty}"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "page-submit-guard",
+          "why_required": "Shows the page rechecks and sets loading.",
+          "acceptable_spans": [
+            {
+              "file_path": "frontend/src/App.tsx",
+              "start_line": 15,
+              "end_line": 54,
+              "content_contains": [
+                "question.trim()",
+                "isLoading",
+                "setIsLoading(true)",
+                "await askQuestion"
+              ]
+            }
+          ]
+        }
+      ],
+      "missing_reason": null,
+      "repository": "codebase-qa-v2",
+      "rationale": "The form checks trimmed emptiness/loading before invoking submission and disables its button. The page rechecks trimmed text/loading and sets loading before awaiting the request. This does not prove an unconditional concurrency guarantee."
+    }
+  ]
+}

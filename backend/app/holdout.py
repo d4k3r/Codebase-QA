@@ -9,6 +9,7 @@ import hashlib
 import json
 import re
 import subprocess
+from collections import Counter
 from difflib import SequenceMatcher
 from pathlib import Path, PurePosixPath
 from typing import Literal
@@ -96,12 +97,141 @@ class HoldoutCandidates(BaseModel):
         return self
 
 
+class FrozenCase(Candidate):
+    """Candidate label plus the fields expected by the later evaluator."""
+
+    repository: str = Field(min_length=1)
+    rationale: str = Field(min_length=1)
+
+
+class FrozenCorpus(BaseModel):
+    repository: str = Field(min_length=1)
+    expected_chunk_count: int = Field(ge=1)
+    index_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_revision: str = Field(pattern=r"^[0-9a-f]{40}$")
+    chunking_identifier: str = Field(min_length=1)
+
+
+class FrozenDataset(BaseModel):
+    """An audited source-grounded split; hashes exclude only the two hash fields."""
+
+    format_version: Literal[1]
+    dataset_version: str = Field(min_length=1)
+    dataset_status: Literal["Human-reviewed, independently audited, frozen."]
+    cohort: Literal["primary", "source_coverage_challenge"]
+    source_revision: str = Field(pattern=r"^[0-9a-f]{40}$")
+    repository: str = Field(min_length=1)
+    dev_dataset_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    dev_case_set_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    candidate_pool_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    index_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    corpus: FrozenCorpus
+    case_count: int = Field(ge=1)
+    answerable_count: int = Field(ge=0)
+    unanswerable_count: int = Field(ge=0)
+    multi_evidence_count: int = Field(ge=0)
+    category_counts: dict[str, int]
+    case_set_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    dataset_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    cases: list[FrozenCase] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def consistent_freeze(self) -> "FrozenDataset":
+        if len({case.case_id for case in self.cases}) != len(self.cases):
+            raise ValueError("Frozen case IDs must be unique")
+        if (self.corpus.repository != self.repository
+                or self.corpus.source_revision != self.source_revision
+                or self.corpus.index_manifest_sha256 != self.index_manifest_sha256
+                or any(case.repository != self.repository for case in self.cases)):
+            raise ValueError("Frozen corpus and case identities do not match")
+        if self.case_count != len(self.cases):
+            raise ValueError("Frozen case count does not match cases")
+        if self.answerable_count != sum(case.source_answerable for case in self.cases):
+            raise ValueError("Frozen answerable count does not match cases")
+        if self.unanswerable_count != self.case_count - self.answerable_count:
+            raise ValueError("Frozen unanswerable count does not match cases")
+        if self.multi_evidence_count != sum(
+            len(case.required_evidence) >= 2 for case in self.cases
+        ):
+            raise ValueError("Frozen multi-evidence count does not match cases")
+        if self.category_counts != dict(Counter(
+            case.primary_category for case in self.cases
+        )):
+            raise ValueError("Frozen category counts do not match cases")
+        if self.case_set_hash != _sha256_json([
+            case.model_dump(mode="json") for case in self.cases
+        ]):
+            raise ValueError("Frozen case-set hash does not match cases")
+        if self.dataset_hash != _sha256_json(
+            self.model_dump(mode="json", exclude={"dataset_hash", "case_set_hash"})
+        ):
+            raise ValueError("Frozen dataset hash does not match payload")
+        return self
+
+
+def _sha256_json(value: object) -> str:
+    raw = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
 def canonical_hash(value: BaseModel) -> str:
     """Hash canonical validated JSON, independent of whitespace/key formatting."""
 
-    raw = json.dumps(value.model_dump(mode="json"), sort_keys=True,
-                     separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(raw).hexdigest()
+    return _sha256_json(value.model_dump(mode="json"))
+
+
+def freeze_dataset(
+    candidates: HoldoutCandidates,
+    cases: list[Candidate],
+    *,
+    cohort: Literal["primary", "source_coverage_challenge"],
+    dataset_version: str,
+    index_manifest_sha256: str,
+    expected_chunk_count: int,
+    chunking_identifier: str,
+) -> FrozenDataset:
+    """Create a self-checking immutable-identity dataset from audited cases."""
+
+    payload = {
+        "format_version": 1,
+        "dataset_version": dataset_version,
+        "dataset_status": "Human-reviewed, independently audited, frozen.",
+        "cohort": cohort,
+        "source_revision": candidates.source_revision,
+        "repository": candidates.repository,
+        "dev_dataset_hash": candidates.dev_dataset_hash,
+        "dev_case_set_hash": candidates.dev_case_set_hash,
+        "candidate_pool_hash": canonical_hash(candidates),
+        "index_manifest_sha256": index_manifest_sha256,
+        "corpus": {
+            "repository": candidates.repository,
+            "expected_chunk_count": expected_chunk_count,
+            "index_manifest_sha256": index_manifest_sha256,
+            "source_revision": candidates.source_revision,
+            "chunking_identifier": chunking_identifier,
+        },
+        "case_count": len(cases),
+        "answerable_count": sum(case.source_answerable for case in cases),
+        "unanswerable_count": sum(not case.source_answerable for case in cases),
+        "multi_evidence_count": sum(len(case.required_evidence) >= 2 for case in cases),
+        "category_counts": dict(Counter(case.primary_category for case in cases)),
+        "cases": [
+            case.model_dump(mode="json") | {
+                "repository": candidates.repository,
+                "rationale": case.expected_answer,
+            }
+            for case in cases
+        ],
+    }
+    payload["case_set_hash"] = _sha256_json(payload["cases"])
+    payload["dataset_hash"] = _sha256_json({
+        key: value for key, value in payload.items() if key != "case_set_hash"
+    })
+    return FrozenDataset.model_validate(payload)
+
+
+def load_frozen(path: Path) -> FrozenDataset:
+    return FrozenDataset.model_validate_json(path.read_text(encoding="utf-8"))
 
 
 def load_candidates(path: Path) -> HoldoutCandidates:
@@ -121,7 +251,9 @@ def _source_lines(root: Path, revision: str, file_path: str) -> list[str]:
         raise ValueError(f"Source is not UTF-8: {file_path}") from exc
 
 
-def validate_sources(dataset: HoldoutCandidates, root: Path) -> dict[str, list[str]]:
+def validate_sources(
+    dataset: HoldoutCandidates | FrozenDataset, root: Path
+) -> dict[str, list[str]]:
     """Validate every gold alternative against the exact Git tree, without retrieval."""
 
     revision = subprocess.run(
