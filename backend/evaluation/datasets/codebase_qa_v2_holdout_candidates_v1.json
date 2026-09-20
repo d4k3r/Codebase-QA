@@ -1,0 +1,299 @@
+{
+  "format_version": 1,
+  "dataset_version": "codebase-qa-v2-holdout-candidates-v1.0.0",
+  "dataset_status": "Machine-prepared source-grounded holdout candidate pending human review; NOT FROZEN; NOT EVALUATED.",
+  "source_revision": "7a3b7b05087793975ae0a84d85e7d691d9f3352e",
+  "repository": "codebase-qa-v2",
+  "dev_dataset_hash": "eb095d8701955216171ad3463f6cfb2d7ce2ce44cf8aef47ceaf00c41edd2a8b",
+  "dev_case_set_hash": "97a85902564bdcfce9e5e85da38c0f1008cb3fc839296f2a3c4871e1f78a26af",
+  "cases": [
+    {
+      "case_id": "holdout-semantic-01", "question": "What causes a supported-looking configuration file to be skipped as binary or undecodable text?", "primary_category": "semantic_conceptual", "source_answerable": true,
+      "expected_answer": "The loader samples bytes, rejects NUL-containing files, and rejects samples that cannot decode as UTF-8.",
+      "required_evidence": [{"evidence_id": "config-text-guard", "why_required": "This guard decides whether config candidates are text before loading.", "acceptable_spans": [{"file_path": "backend/app/services/repository_loader.py", "start_line": 49, "end_line": 63, "content_contains": ["sample.decode", "UnicodeDecodeError"]}]}]
+    },
+    {
+      "case_id": "holdout-semantic-02", "question": "Why can a parenthesised multi-line decorator still appear in a function's source provenance?", "primary_category": "semantic_conceptual", "source_answerable": true,
+      "expected_answer": "Token scanning walks back from the AST decorator expression to its @ token, which can precede the expression's own line.",
+      "required_evidence": [{"evidence_id": "decorator-at-token", "why_required": "The token scan establishes the true opening line.", "acceptable_spans": [{"file_path": "backend/app/services/chunker.py", "start_line": 42, "end_line": 64, "content_contains": ["tokenize.generate_tokens", "token.string == \"@\""]}]}]
+    },
+    {
+      "case_id": "holdout-semantic-03", "question": "What happens to imports or assignments between two top-level Python definitions?", "primary_category": "semantic_conceptual", "source_answerable": true,
+      "expected_answer": "The chunker gathers consecutive uncovered statements into a module_companion span and flushes it before each supported definition.",
+      "required_evidence": [{"evidence_id": "companion-flush", "why_required": "The loop and flush make those statements independently represented.", "acceptable_spans": [{"file_path": "backend/app/services/chunker.py", "start_line": 148, "end_line": 194, "content_contains": ["companion_nodes.append(node)", "flush_companion()"]}]}]
+    },
+    {
+      "case_id": "holdout-semantic-04", "question": "How does config chunking avoid storing an empty file as a searchable chunk?", "primary_category": "semantic_conceptual", "source_answerable": true,
+      "expected_answer": "It returns no chunks for all-whitespace source and flushes only pending text with non-whitespace content.",
+      "required_evidence": [{"evidence_id": "config-blank-guard", "why_required": "Both the early return and flush guard determine emitted chunks.", "acceptable_spans": [{"file_path": "backend/app/services/text_chunker.py", "start_line": 46, "end_line": 66, "content_contains": ["if not source.strip():", "if pending and"]}]}]
+    },
+    {
+      "case_id": "holdout-semantic-05", "question": "How is a generated answer displayed as Markdown without explicitly injecting raw HTML?", "primary_category": "semantic_conceptual", "source_answerable": true,
+      "expected_answer": "The Answer component passes answer text as children of ReactMarkdown; it does not call dangerouslySetInnerHTML or enable a raw-HTML plugin.",
+      "required_evidence": [{"evidence_id": "answer-markdown-component", "why_required": "The render path shows the Markdown component and original answer text.", "acceptable_spans": [{"file_path": "frontend/src/components/Answer.tsx", "start_line": 7, "end_line": 17, "content_contains": ["<ReactMarkdown>{answer}</ReactMarkdown>"]}]}]
+    },
+    {
+      "case_id": "holdout-identifier-01", "question": "What validates that a requested local indexing root exists and is a directory before traversal?", "primary_category": "exact_identifier", "source_answerable": true,
+      "expected_answer": "resolve_repository_root resolves the path, then checks exists() and is_dir().",
+      "required_evidence": [{"evidence_id": "root-path-check", "why_required": "The named helper performs the pre-traversal path checks.", "acceptable_spans": [{"file_path": "backend/app/services/repository_loader.py", "start_line": 31, "end_line": 39, "content_contains": ["def resolve_repository_root", "root.is_dir()"]}]}]
+    },
+    {
+      "case_id": "holdout-identifier-02", "question": "What helper splits an unusually long single config line into bounded original-text pieces?", "primary_category": "exact_identifier", "source_answerable": true,
+      "expected_answer": "_bounded_line_pieces emits source-line-numbered slices, including pieces of long individual lines.",
+      "required_evidence": [{"evidence_id": "bounded-config-line-helper", "why_required": "The helper's offset loop defines how a long line is divided.", "acceptable_spans": [{"file_path": "backend/app/services/text_chunker.py", "start_line": 11, "end_line": 22, "content_contains": ["def _bounded_line_pieces", "range(0, len(line)"]}]}]
+    },
+    {
+      "case_id": "holdout-identifier-03", "question": "Which retrieval function rejects an out-of-range result count before querying the vector column?", "primary_category": "exact_identifier", "source_answerable": true,
+      "expected_answer": "search_code validates top_k against MAX_TOP_K before calling embed_query and building its SQL statement.",
+      "required_evidence": [{"evidence_id": "search-limit-validator", "why_required": "The function contains the result-count guard before embedding and SQL.", "acceptable_spans": [{"file_path": "backend/app/services/retrieval.py", "start_line": 33, "end_line": 50, "content_contains": ["def search_code", "not 1 <= limit <= MAX_TOP_K"]}]}]
+    },
+    {
+      "case_id": "holdout-identifier-04", "question": "Which helper chooses an explicit repository name or falls back to the root directory name?", "primary_category": "exact_identifier", "source_answerable": true,
+      "expected_answer": "storage._resolve_repository_name strips an explicit name or uses root.name, then rejects empty names.",
+      "required_evidence": [{"evidence_id": "repository-name-helper", "why_required": "The helper implements name choice before indexing.", "acceptable_spans": [{"file_path": "backend/app/services/storage.py", "start_line": 29, "end_line": 33, "content_contains": ["def _resolve_repository_name", "root.name"]}]}]
+    },
+    {
+      "case_id": "holdout-identifier-05", "question": "What validator rejects an LLM endpoint setting that is not an absolute HTTP(S) URL?", "primary_category": "exact_identifier", "source_answerable": true,
+      "expected_answer": "Settings.validate_llm_base_url uses urlparse and checks scheme and netloc.",
+      "required_evidence": [{"evidence_id": "llm-base-url-validator", "why_required": "The decorator and method identify the validation boundary.", "acceptable_spans": [{"file_path": "backend/app/config.py", "start_line": 52, "end_line": 60, "content_contains": ["def validate_llm_base_url", "parsed.netloc"]}]}]
+    },
+    {
+      "case_id": "holdout-config-01", "question": "What database-engine option checks pooled connections before using them?", "primary_category": "configuration_constants", "source_answerable": true,
+      "expected_answer": "The engine is created with pool_pre_ping=True.",
+      "required_evidence": [{"evidence_id": "engine-pre-ping", "why_required": "The engine constructor contains the option.", "acceptable_spans": [{"file_path": "backend/app/database.py", "start_line": 10, "end_line": 12, "content_contains": ["pool_pre_ping=True"]}]}]
+    },
+    {
+      "case_id": "holdout-config-02", "question": "What maximum requested result count does the dense search service permit?", "primary_category": "configuration_constants", "source_answerable": true,
+      "expected_answer": "MAX_TOP_K is 50 and search_code rejects limits outside 1 to 50.",
+      "required_evidence": [{"evidence_id": "dense-result-cap", "why_required": "The constant defines the service's maximum.", "acceptable_spans": [{"file_path": "backend/app/services/retrieval.py", "start_line": 14, "end_line": 14, "content_contains": ["MAX_TOP_K = 50"]}]}]
+    },
+    {
+      "case_id": "holdout-config-03", "question": "How is the development database port kept off non-loopback host interfaces?", "primary_category": "configuration_constants", "source_answerable": true,
+      "expected_answer": "Compose publishes the configurable host port bound to 127.0.0.1 only.",
+      "required_evidence": [{"evidence_id": "compose-loopback-binding", "why_required": "The published port string contains the loopback host address.", "acceptable_spans": [{"file_path": "docker-compose.yml", "start_line": 8, "end_line": 9, "content_contains": ["127.0.0.1:", "POSTGRES_PORT"]}]}]
+    },
+    {
+      "case_id": "holdout-config-04", "question": "What size cap controls config-text chunks in the accepted source policy?", "primary_category": "configuration_constants", "source_answerable": true,
+      "expected_answer": "MAX_CONFIG_CHUNK_CHARACTERS is 4,000 characters; this is not a tokenizer-token guarantee.",
+      "required_evidence": [{"evidence_id": "config-character-cap", "why_required": "The config chunker declares its bound explicitly.", "acceptable_spans": [{"file_path": "backend/app/services/text_chunker.py", "start_line": 8, "end_line": 8, "content_contains": ["MAX_CONFIG_CHUNK_CHARACTERS = 4_000"]}]}]
+    },
+    {
+      "case_id": "holdout-config-05", "question": "What settings-file policy ignores empty environment values and unknown keys?", "primary_category": "configuration_constants", "source_answerable": true,
+      "expected_answer": "The Settings model uses env_ignore_empty=True and extra='ignore'.",
+      "required_evidence": [{"evidence_id": "settings-env-policy", "why_required": "The model configuration sets both behaviours.", "acceptable_spans": [{"file_path": "backend/app/config.py", "start_line": 18, "end_line": 24, "content_contains": ["env_ignore_empty=True", "extra=\"ignore\""]}]}]
+    },
+    {
+      "case_id": "holdout-path-01", "question": "Where does the browser-side code send its JSON question request?", "primary_category": "filename_path", "source_answerable": true,
+      "expected_answer": "frontend/src/api.ts calls fetch('/ask') with POST and JSON headers/body.",
+      "required_evidence": [{"evidence_id": "browser-ask-fetch", "why_required": "The browser transport path and method are present in one file.", "acceptable_spans": [{"file_path": "frontend/src/api.ts", "start_line": 40, "end_line": 48, "content_contains": ["fetch(\"/ask\"", "JSON.stringify(request)"]}]}]
+    },
+    {
+      "case_id": "holdout-path-02", "question": "Which frontend file displays retrieved source line numbers beside a file path?", "primary_category": "filename_path", "source_answerable": true,
+      "expected_answer": "frontend/src/components/SourceList.tsx displays repository/file_path and start/end line range.",
+      "required_evidence": [{"evidence_id": "source-card-provenance", "why_required": "The source card renders path and line provenance.", "acceptable_spans": [{"file_path": "frontend/src/components/SourceList.tsx", "start_line": 17, "end_line": 26, "content_contains": ["source.file_path", "source.start_line"]}]}]
+    },
+    {
+      "case_id": "holdout-path-03", "question": "Where is the OpenAI-compatible client's optional base URL applied?", "primary_category": "filename_path", "source_answerable": true,
+      "expected_answer": "backend/app/services/rag.py applies llm_base_url inside _create_client.",
+      "required_evidence": [{"evidence_id": "provider-base-url-location", "why_required": "The client factory conditionally supplies base_url.", "acceptable_spans": [{"file_path": "backend/app/services/rag.py", "start_line": 85, "end_line": 93, "content_contains": ["options[\"base_url\"]", "return OpenAI"]}]}]
+    },
+    {
+      "case_id": "holdout-path-04", "question": "Which separate loader handles allowlisted non-Python source as text rather than Python AST?", "primary_category": "filename_path", "source_answerable": true,
+      "expected_answer": "backend/app/services/text_chunker.py provides chunk_config_file.",
+      "required_evidence": [{"evidence_id": "config-loader-location", "why_required": "The named function is the non-AST text path.", "acceptable_spans": [{"file_path": "backend/app/services/text_chunker.py", "start_line": 25, "end_line": 30, "content_contains": ["def chunk_config_file", "without applying Python semantics"]}]}]
+    },
+    {
+      "case_id": "holdout-path-05", "question": "Where is the narrow allowlist for non-Python repository files declared?", "primary_category": "filename_path", "source_answerable": true,
+      "expected_answer": "repository_loader.py declares SQL/YAML suffixes plus .env.example and vite.config.ts filenames.",
+      "required_evidence": [{"evidence_id": "config-allowlist-location", "why_required": "The declarations specify the supported paths.", "acceptable_spans": [{"file_path": "backend/app/services/repository_loader.py", "start_line": 19, "end_line": 20, "content_contains": ["SUPPORTED_CONFIG_SUFFIXES", ".env.example"]}]}]
+    },
+    {
+      "case_id": "holdout-route-01", "question": "Which HTTP handler returns a 201 status when local indexing succeeds?", "primary_category": "decorator_api_route", "source_answerable": true,
+      "expected_answer": "index_local_repository is decorated with POST /repositories/index and HTTP_201_CREATED.",
+      "required_evidence": [{"evidence_id": "index-status-decorator", "why_required": "The decorator defines its status code.", "acceptable_spans": [{"file_path": "backend/app/api/routes.py", "start_line": 53, "end_line": 61, "content_contains": ["HTTP_201_CREATED", "def index_local_repository"]}]}]
+    },
+    {
+      "case_id": "holdout-route-02", "question": "What client-facing status does the search route use when embedding or retrieval fails internally?", "primary_category": "decorator_api_route", "source_answerable": true,
+      "expected_answer": "The /search handler responds with HTTP 500 and a generic Semantic search failed detail.",
+      "required_evidence": [{"evidence_id": "search-internal-error-status", "why_required": "The route maps the internal failure classes to HTTP 500.", "acceptable_spans": [{"file_path": "backend/app/api/routes.py", "start_line": 82, "end_line": 94, "content_contains": ["status_code=500", "Semantic search failed."]}]}]
+    },
+    {
+      "case_id": "holdout-route-03", "question": "What status is returned when the answer provider fails after retrieval?", "primary_category": "decorator_api_route", "source_answerable": true,
+      "expected_answer": "The /ask route maps RAGGenerationError to HTTP 502.",
+      "required_evidence": [{"evidence_id": "ask-provider-error-status", "why_required": "The handler has the provider-error exception branch.", "acceptable_spans": [{"file_path": "backend/app/api/routes.py", "start_line": 109, "end_line": 118, "content_contains": ["RAGGenerationError", "status_code=502"]}]}]
+    },
+    {
+      "case_id": "holdout-route-04", "question": "Which decorator applies repository-scope normalisation to a request body?", "primary_category": "decorator_api_route", "source_answerable": true,
+      "expected_answer": "field_validator('repository') applies _normalise_repository_scope; either SearchRequest or AskRequest demonstrates the same fact.",
+      "required_evidence": [{"evidence_id": "request-scope-validator", "why_required": "Either request-model declaration independently demonstrates the shared validator.", "acceptable_spans": [{"file_path": "backend/app/schemas.py", "start_line": 35, "end_line": 40, "content_contains": ["field_validator(\"repository\")"]}, {"file_path": "backend/app/schemas.py", "start_line": 58, "end_line": 63, "content_contains": ["field_validator(\"repository\")"]}]}]
+    },
+    {
+      "case_id": "holdout-route-05", "question": "What decorator makes embedding-model construction lazy and cached?", "primary_category": "decorator_api_route", "source_answerable": true,
+      "expected_answer": "@lru_cache(maxsize=1) decorates get_embedding_model.",
+      "required_evidence": [{"evidence_id": "embedding-cache-decorator", "why_required": "The decorator and function signature establish caching.", "acceptable_spans": [{"file_path": "backend/app/services/embeddings.py", "start_line": 17, "end_line": 20, "content_contains": ["@lru_cache(maxsize=1)", "def get_embedding_model"]}]}]
+    },
+    {
+      "case_id": "holdout-architecture-01", "question": "How are database table definitions made available to the explicit first-run initializer?", "primary_category": "architecture", "source_answerable": true,
+      "expected_answer": "Models share the SQLAlchemy declarative Base; the initializer imports that Base and calls Base.metadata.create_all(bind=engine).",
+      "required_evidence": [
+        {"evidence_id": "declarative-base-definition", "why_required": "Defines the metadata-owning declarative base.", "acceptable_spans": [{"file_path": "backend/app/models.py", "start_line": 8, "end_line": 9, "content_contains": ["class Base(DeclarativeBase)"]}]},
+        {"evidence_id": "initial-metadata-create", "why_required": "Shows the initializer using that metadata.", "acceptable_spans": [{"file_path": "backend/scripts/init_db.py", "start_line": 5, "end_line": 12, "content_contains": ["Base.metadata.create_all"]}]}
+      ]
+    },
+    {
+      "case_id": "holdout-architecture-02", "question": "Where does indexing decide between AST-based Python chunking and config-text chunking?", "primary_category": "architecture", "source_answerable": true,
+      "expected_answer": "storage._load_chunks branches on the .py suffix and calls chunk_python_file or chunk_config_file.",
+      "required_evidence": [{"evidence_id": "storage-chunker-dispatch", "why_required": "This is the central file-type dispatch.", "acceptable_spans": [{"file_path": "backend/app/services/storage.py", "start_line": 36, "end_line": 43, "content_contains": ["chunk_python_file", "chunk_config_file"]}]}]
+    },
+    {
+      "case_id": "holdout-architecture-03", "question": "How are exact cosine-distance ties made reproducible for a fixed index snapshot?", "primary_category": "architecture", "source_answerable": true,
+      "expected_answer": "SQL ordering follows distance with repository, path, line range, symbol metadata, then row ID.",
+      "required_evidence": [{"evidence_id": "cosine-tie-order", "why_required": "The query's order_by establishes deterministic tie-breakers.", "acceptable_spans": [{"file_path": "backend/app/services/retrieval.py", "start_line": 54, "end_line": 63, "content_contains": ["CodeChunk.file_path", "CodeChunk.id"]}]}]
+    },
+    {
+      "case_id": "holdout-architecture-04", "question": "What ensures the per-answer provider client is closed after a request failure?", "primary_category": "architecture", "source_answerable": true,
+      "expected_answer": "The chat completion call is wrapped in a try/finally whose finally closes the client.",
+      "required_evidence": [{"evidence_id": "provider-client-finally", "why_required": "The finally clause covers success and provider-error paths.", "acceptable_spans": [{"file_path": "backend/app/services/rag.py", "start_line": 122, "end_line": 135, "content_contains": ["finally:", "client.close()"]}]}]
+    },
+    {
+      "case_id": "holdout-architecture-05", "question": "How does the API avoid placing raw internal exception text in its diagnostic log entry?", "primary_category": "architecture", "source_answerable": true,
+      "expected_answer": "The route logger records a stable message and exception class name rather than formatting or serializing the exception itself.",
+      "required_evidence": [{"evidence_id": "route-safe-error-log", "why_required": "The logging helper determines the diagnostic payload.", "acceptable_spans": [{"file_path": "backend/app/api/routes.py", "start_line": 36, "end_line": 39, "content_contains": ["type(error).__name__", "logger.error"]}]}]
+    },
+    {
+      "case_id": "holdout-cross-01", "question": "How does the configured database URL become the connection target for request sessions?", "primary_category": "cross_module_behavior", "source_answerable": true,
+      "expected_answer": "Settings supplies database_url; database.py passes it to create_engine and binds SessionLocal to that engine.",
+      "required_evidence": [
+        {"evidence_id": "database-url-setting", "why_required": "Defines the configurable connection URL.", "acceptable_spans": [{"file_path": "backend/app/config.py", "start_line": 26, "end_line": 29, "content_contains": ["database_url", "DATABASE_URL"]}]},
+        {"evidence_id": "database-engine-binding", "why_required": "Shows the setting consumed by engine and session factory.", "acceptable_spans": [{"file_path": "backend/app/database.py", "start_line": 10, "end_line": 12, "content_contains": ["get_settings().database_url", "sessionmaker(bind=engine"]}]}
+      ]
+    },
+    {
+      "case_id": "holdout-cross-02", "question": "How does an allowlisted YAML file reach a text chunker instead of the Python parser?", "primary_category": "cross_module_behavior", "source_answerable": true,
+      "expected_answer": "Discovery allows .yaml/.yml and includes config sources; storage dispatches non-.py files to chunk_config_file.",
+      "required_evidence": [
+        {"evidence_id": "yaml-allowlist", "why_required": "Shows YAML is among discoverable config sources.", "acceptable_spans": [{"file_path": "backend/app/services/repository_loader.py", "start_line": 19, "end_line": 20, "content_contains": [".yaml", ".yml"]}]},
+        {"evidence_id": "nonpython-dispatch", "why_required": "Shows non-Python files are routed to the text chunker.", "acceptable_spans": [{"file_path": "backend/app/services/storage.py", "start_line": 36, "end_line": 43, "content_contains": ["file_path.suffix == \".py\"", "chunk_config_file"]}]}
+      ]
+    },
+    {
+      "case_id": "holdout-cross-03", "question": "What must the backend include in an answer source for the browser to accept the response?", "primary_category": "cross_module_behavior", "source_answerable": true,
+      "expected_answer": "AskResponse contains answer plus RetrievedChunkResponse sources; the browser verifies each source's provenance/content and numeric cosine_distance.",
+      "required_evidence": [
+        {"evidence_id": "backend-ask-contract", "why_required": "Defines the backend response and source fields.", "acceptable_spans": [{"file_path": "backend/app/schemas.py", "start_line": 43, "end_line": 51, "content_contains": ["file_path", "cosine_distance"]}]},
+        {"evidence_id": "browser-source-guard", "why_required": "Shows browser-side field checks.", "acceptable_spans": [{"file_path": "frontend/src/api.ts", "start_line": 7, "end_line": 21, "content_contains": ["value.file_path", "value.cosine_distance"]}]}
+      ]
+    },
+    {
+      "case_id": "holdout-cross-04", "question": "How do parsed source line ranges become persistent row provenance during indexing?", "primary_category": "cross_module_behavior", "source_answerable": true,
+      "expected_answer": "SourceChunk carries file_path/start/end/content, and storage copies those fields into CodeChunk rows before one transaction publishes them.",
+      "required_evidence": [
+        {"evidence_id": "parsed-provenance-fields", "why_required": "Defines the parser's source-provenance record.", "acceptable_spans": [{"file_path": "backend/app/services/chunker.py", "start_line": 21, "end_line": 31, "content_contains": ["start_line: int", "content: str"]}]},
+        {"evidence_id": "row-provenance-copy", "why_required": "Shows the fields transferred to the ORM row.", "acceptable_spans": [{"file_path": "backend/app/services/storage.py", "start_line": 62, "end_line": 74, "content_contains": ["start_line=chunk.start_line", "content=chunk.content"]}]}
+      ]
+    },
+    {
+      "case_id": "holdout-cross-05", "question": "How do the question form and page together prevent submitting blank text or a duplicate in-flight request?", "primary_category": "cross_module_behavior", "source_answerable": true,
+      "expected_answer": "QuestionForm checks trimmed emptiness/loading before submit and disables the button; App.handleAsk repeats the trimmed/loading guard.",
+      "required_evidence": [
+        {"evidence_id": "form-submit-guard", "why_required": "The form prevents and disables invalid/in-flight submission.", "acceptable_spans": [{"file_path": "frontend/src/components/QuestionForm.tsx", "start_line": 16, "end_line": 22, "content_contains": ["question.trim()", "!isLoading && !isEmpty"]}]},
+        {"evidence_id": "app-submit-guard", "why_required": "The handler independently rejects whitespace and in-flight calls.", "acceptable_spans": [{"file_path": "frontend/src/App.tsx", "start_line": 15, "end_line": 19, "content_contains": ["question.trim()", "isLoading"]}]}
+      ]
+    },
+    {
+      "case_id": "holdout-multi-01", "question": "For a YAML candidate, what two checks and transformations prevent binary input from becoming a stored config chunk?", "primary_category": "multiple_required_evidence", "source_answerable": true,
+      "expected_answer": "Discovery admits YAML but rejects NUL/non-UTF8 samples; the config chunker then reads UTF-8 text and only emits nonblank pieces.",
+      "required_evidence": [
+        {"evidence_id": "config-binary-screen", "why_required": "Establishes the discovery-time binary/text distinction.", "acceptable_spans": [{"file_path": "backend/app/services/repository_loader.py", "start_line": 49, "end_line": 63, "content_contains": ["sample.decode", "return False"]}]},
+        {"evidence_id": "config-text-read", "why_required": "Establishes the later UTF-8 read and no-blank-chunk rule.", "acceptable_spans": [{"file_path": "backend/app/services/text_chunker.py", "start_line": 39, "end_line": 47, "content_contains": ["read_text(encoding=\"utf-8\")", "if not source.strip()"]}]}
+      ]
+    },
+    {
+      "case_id": "holdout-multi-02", "question": "How is a whitespace-only repository selector rejected before a query could return global results?", "primary_category": "multiple_required_evidence", "source_answerable": true,
+      "expected_answer": "Request validation strips/rejects blank scope, and search_code independently rejects supplied blank scope before applying a repository SQL predicate.",
+      "required_evidence": [
+        {"evidence_id": "scope-request-validation", "why_required": "Covers the HTTP input boundary.", "acceptable_spans": [{"file_path": "backend/app/schemas.py", "start_line": 8, "end_line": 14, "content_contains": ["scope = value.strip()", "raise ValueError"]}]},
+        {"evidence_id": "scope-sql-safety", "why_required": "Covers the service boundary and scoped SQL semantics.", "acceptable_spans": [{"file_path": "backend/app/services/retrieval.py", "start_line": 45, "end_line": 53, "content_contains": ["Repository scope must not be blank", "CodeChunk.repository == scope"]}]}
+      ]
+    },
+    {
+      "case_id": "holdout-multi-03", "question": "When LLM credentials are absent, where is the problem detected and how is it reported over HTTP?", "primary_category": "multiple_required_evidence", "source_answerable": true,
+      "expected_answer": "RAG checks API key/model and raises LLMConfigurationError; the /ask route translates that to HTTP 503.",
+      "required_evidence": [
+        {"evidence_id": "llm-required-config-check", "why_required": "Shows missing credentials/model are diagnosed.", "acceptable_spans": [{"file_path": "backend/app/services/rag.py", "start_line": 70, "end_line": 82, "content_contains": ["LLM_API_KEY", "LLMConfigurationError"]}]},
+        {"evidence_id": "llm-config-http-status", "why_required": "Shows the corresponding HTTP response.", "acceptable_spans": [{"file_path": "backend/app/api/routes.py", "start_line": 109, "end_line": 115, "content_contains": ["LLMConfigurationError", "status_code=503"]}]}
+      ]
+    },
+    {
+      "case_id": "holdout-multi-04", "question": "How is the configured default result count constrained before dense retrieval executes?", "primary_category": "multiple_required_evidence", "source_answerable": true,
+      "expected_answer": "Settings declares DEFAULT_TOP_K with a 1–50 validation range; search_code uses that default when top_k is absent and independently checks against MAX_TOP_K.",
+      "required_evidence": [
+        {"evidence_id": "validated-top-k-setting", "why_required": "Defines the configuration default and its allowed range.", "acceptable_spans": [{"file_path": "backend/app/config.py", "start_line": 35, "end_line": 35, "content_contains": ["default_top_k", "le=50"]}]},
+        {"evidence_id": "retrieval-default-and-limit", "why_required": "Shows the service consumes and checks the configured limit.", "acceptable_spans": [{"file_path": "backend/app/services/retrieval.py", "start_line": 41, "end_line": 43, "content_contains": ["get_settings().default_top_k", "MAX_TOP_K"]}]}
+      ]
+    },
+    {
+      "case_id": "holdout-multi-05", "question": "What path does a browser question take through the development proxy to the backend ask handler?", "primary_category": "multiple_required_evidence", "source_answerable": true,
+      "expected_answer": "The browser posts JSON to relative /ask; Vite proxies /ask to local port 8000; FastAPI's /ask handler accepts that request.",
+      "required_evidence": [
+        {"evidence_id": "browser-relative-ask", "why_required": "Shows the page invokes the browser ask transport.", "acceptable_spans": [{"file_path": "frontend/src/App.tsx", "start_line": 25, "end_line": 27, "content_contains": ["askQuestion({ question: trimmedQuestion })"]}]},
+        {"evidence_id": "vite-ask-proxy", "why_required": "Shows the development forwarding target.", "acceptable_spans": [{"file_path": "frontend/vite.config.ts", "start_line": 7, "end_line": 12, "content_contains": ["\"/ask\"", "127.0.0.1:8000"]}]},
+        {"evidence_id": "backend-ask-handler", "why_required": "Shows the backend destination.", "acceptable_spans": [{"file_path": "backend/app/api/routes.py", "start_line": 97, "end_line": 101, "content_contains": ["@router.post(\"/ask\"", "def ask_repository"]}]}
+      ]
+    },
+    {
+      "case_id": "holdout-near-01", "question": "Which repository error represents a traversal/read failure rather than a path that simply does not exist?", "primary_category": "difficult_near_matches", "source_answerable": true,
+      "expected_answer": "RepositoryReadError is the traversal/read subclass; RepositoryPathError is the general invalid-path base.",
+      "required_evidence": [{"evidence_id": "repository-read-error-distinction", "why_required": "The two adjacent exception declarations establish their relationship.", "acceptable_spans": [{"file_path": "backend/app/services/repository_loader.py", "start_line": 23, "end_line": 28, "content_contains": ["class RepositoryReadError(RepositoryPathError)"]}]}]
+    },
+    {
+      "case_id": "holdout-near-02", "question": "Does a Python file outside the repository root fail for the same reason as a syntax-invalid file inside it?", "primary_category": "difficult_near_matches", "source_answerable": true,
+      "expected_answer": "No. Path.relative_to failure raises SourceFileError for outside-root input; ast.parse failure raises SourceFileError with an invalid-syntax location.",
+      "required_evidence": [
+        {"evidence_id": "outside-root-path-failure", "why_required": "Shows the path-safety branch.", "acceptable_spans": [{"file_path": "backend/app/services/chunker.py", "start_line": 109, "end_line": 114, "content_contains": ["path.relative_to(root)", "outside repository root"]}]},
+        {"evidence_id": "syntax-parse-failure", "why_required": "Shows the distinct parse-failure branch.", "acceptable_spans": [{"file_path": "backend/app/services/chunker.py", "start_line": 123, "end_line": 129, "content_contains": ["ast.parse", "Invalid Python syntax"]}]}
+      ]
+    },
+    {
+      "case_id": "holdout-near-03", "question": "What distinguishes a missing provider setting from a provider request that failed after configuration?", "primary_category": "difficult_near_matches", "source_answerable": true,
+      "expected_answer": "LLMConfigurationError means required settings are absent; RAGGenerationError means generation failed.",
+      "required_evidence": [{"evidence_id": "llm-error-types", "why_required": "The adjacent exception types state their separate meanings.", "acceptable_spans": [{"file_path": "backend/app/services/rag.py", "start_line": 20, "end_line": 25, "content_contains": ["class LLMConfigurationError", "class RAGGenerationError"]}]}]
+    },
+    {
+      "case_id": "holdout-near-04", "question": "Is the stored embedding vector the same value as the cosine distance returned for a search hit?", "primary_category": "difficult_near_matches", "source_answerable": true,
+      "expected_answer": "No. CodeChunk stores a 384-dimensional embedding; search_code computes a scalar cosine distance and places it on RetrievedChunk.",
+      "required_evidence": [
+        {"evidence_id": "stored-vector", "why_required": "Shows the persisted vector field and dimension.", "acceptable_spans": [{"file_path": "backend/app/models.py", "start_line": 24, "end_line": 25, "content_contains": ["VECTOR(384)"]}]},
+        {"evidence_id": "computed-distance", "why_required": "Shows the scalar distance computed from the vector in a query.", "acceptable_spans": [{"file_path": "backend/app/services/retrieval.py", "start_line": 49, "end_line": 53, "content_contains": ["embedding.cosine_distance", "cosine_distance"]}]}
+      ]
+    },
+    {
+      "case_id": "holdout-near-05", "question": "Which failure class means local vectors could not be produced, and which means prepared rows could not be stored?", "primary_category": "difficult_near_matches", "source_answerable": true,
+      "expected_answer": "EmbeddingError describes model/vector creation failure; StorageError describes chunk-storage failure.",
+      "required_evidence": [
+        {"evidence_id": "embedding-error-role", "why_required": "Names the vector-generation failure class.", "acceptable_spans": [{"file_path": "backend/app/services/embeddings.py", "start_line": 13, "end_line": 14, "content_contains": ["class EmbeddingError", "expected embeddings"]}]},
+        {"evidence_id": "storage-error-role", "why_required": "Names the storage failure class.", "acceptable_spans": [{"file_path": "backend/app/services/storage.py", "start_line": 17, "end_line": 18, "content_contains": ["class StorageError", "cannot be stored"]}]}
+      ]
+    },
+    {
+      "case_id": "holdout-unanswerable-01", "question": "Which endpoint streams partial answer tokens to the browser as server-sent events?", "primary_category": "unanswerable_insufficient_context", "source_answerable": false,
+      "expected_answer": "The frozen corpus does not define a streaming/SSE answer endpoint.", "missing_reason": "The defined ask route returns a complete AskResponse; no streaming route or SSE transport is present."
+    },
+    {
+      "case_id": "holdout-unanswerable-02", "question": "Where is a nightly scheduled task configured to refresh indexed repositories automatically?", "primary_category": "unanswerable_insufficient_context", "source_answerable": false,
+      "expected_answer": "No nightly refresh schedule or worker is defined in the frozen source.", "missing_reason": "Indexing is initiated by the explicit HTTP route; there is no scheduler configuration."
+    },
+    {
+      "case_id": "holdout-unanswerable-03", "question": "How are repository files deleted incrementally from the vector index without reindexing the whole repository?", "primary_category": "unanswerable_insufficient_context", "source_answerable": false,
+      "expected_answer": "No incremental file-deletion mechanism is implemented.", "missing_reason": "The storage path replaces all rows for one repository in a transaction."
+    },
+    {
+      "case_id": "holdout-unanswerable-04", "question": "What per-repository storage quota blocks an indexing request before a tenant reaches its limit?", "primary_category": "unanswerable_insufficient_context", "source_answerable": false,
+      "expected_answer": "The frozen source defines no per-repository tenant quota.", "missing_reason": "There is no tenant/account or quota configuration in the backend or database model."
+    },
+    {
+      "case_id": "holdout-unanswerable-05", "question": "Which source file defines an automatic retry policy for indexing a repository after a failed database commit?", "primary_category": "unanswerable_insufficient_context", "source_answerable": false,
+      "expected_answer": "There is no automatic commit-retry policy for indexing.", "missing_reason": "The storage path rolls back SQLAlchemy failures and raises StorageError; it does not schedule or perform a retry."
+    }
+  ]
+}
