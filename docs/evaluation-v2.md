@@ -28,14 +28,18 @@ rejected 11. These decisions, including line-anchored label edits, are encoded
 in `backend/scripts/freeze_audited_holdout.py`. No replacement questions were
 added merely to reach 40.
 
-## Frozen primary holdout
+## Frozen primary holdout — initial blind run completed
 
 `backend/evaluation/datasets/codebase_qa_v2_holdout_v1.json` is version
 `codebase-qa-v2-holdout-v1.0.0`. Status:
 **human-reviewed, independently audited, frozen**. It contains 34 cases:
 29 source-answerable, five absent-feature/unanswerable, and eight genuinely
 multi-evidence. It uses the Batch 2A source revision above and the same 212-row
-index manifest, but no retrieval experiment has yet seen its questions.
+index manifest. Its first blind dense/hybrid/rerank-20 comparison is now an
+immutable historical validation result in
+`docs/holdout-v1-initial-blind-evaluation.md`. The questions have been observed;
+**do not reuse this set as an unbiased model-selection benchmark** or edit its
+questions, labels, or hashes. Dense remains the serving default.
 
 - Dataset hash (canonical payload excluding the self-recorded hash fields):
   `3bb15dafe49667f5b53ab39215c3729fe2b71326d9775e095a05077ec6373c8a`
@@ -83,10 +87,10 @@ historical provenance, not the final label authority. Both frozen files
 self-record and validate their counts, categories, corpus identity, dataset
 hash, and case-set hash. They also carry the original candidate-pool hash.
 
-Only in a **later batch** should the frozen primary set be used once for the
-predeclared dense, hybrid RRF, and hybrid+reranker-20 comparison. Score the
-coverage challenge separately. Report source/index coverage alongside ranking
-metrics; do not retune on these results.
+The predeclared first comparison has happened; do not repeat it for selection
+or retune on its outcomes. Score the coverage challenge separately only in a
+future source-coverage experiment. Report source/index coverage alongside any
+future development-set ranking metrics.
 
 Limitations: one small repository; a question-level rather than source-disjoint
 holdout; backend-heavy primary cases; 34 primary cases provide a small sample;
@@ -95,3 +99,15 @@ establish broad generalisation.
 
 **No retrieval, reranking, or retrieval metric was run on either frozen
 dataset during its construction.**
+
+## DEV2 candidate pool
+
+`backend/evaluation/datasets/codebase_qa_v2_dev2_candidates_v1.json` is new
+development material grounded in the same accepted Batch 2A source revision.
+Its review package is `docs/dev2-review.md`. It is **machine-prepared, pending
+independent audit, not frozen, and not scored**. DEV2 deliberately emphasizes
+multi-evidence ordering, candidate competition, cross-module behavior, and
+oversized source chunks; unlike the former holdout, it is intended for future
+development and tuning after review. Candidate overlap classifications against
+both DEV1 and the observed HOLDOUT are visible in the JSON and review package.
+Source and tokenizer checks do not run retrieval or call an answer provider.

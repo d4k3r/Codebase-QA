@@ -1,0 +1,1794 @@
+{
+  "format_version": 1,
+  "dataset_version": "codebase-qa-v2-dev2-candidates-v1.0.0",
+  "dataset_status": "Machine-prepared DEV2 candidate pending independent audit; NOT FROZEN; NOT SCORED.",
+  "source_revision": "7a3b7b05087793975ae0a84d85e7d691d9f3352e",
+  "repository": "codebase-qa-v2",
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "effective_input_limit": 256,
+  "cases": [
+    {
+      "case_id": "dev2-multi-01",
+      "question": "If the indexing root itself is a symlink, how does discovery treat it differently from symlinked entries inside the tree?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": [
+        "multi_evidence",
+        "path_safety"
+      ],
+      "source_answerable": true,
+      "expected_answer": "The requested root is resolved first; entries found during traversal are classified without following symlinks, so nested symlink entries are not descended or accepted as regular files.",
+      "required_evidence": [
+        {
+          "evidence_id": "root-resolution",
+          "why_required": "Establishes that a symlink supplied as the root is resolved before traversal.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/repository_loader.py",
+              "start_line": 31,
+              "end_line": 39,
+              "content_contains": [
+                "expanduser().resolve()"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "entry-no-follow",
+          "why_required": "Establishes that nested entries are classified without following links.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/repository_loader.py",
+              "start_line": 85,
+              "end_line": 101,
+              "content_contains": [
+                "is_dir(follow_symlinks=False)",
+                "is_file(follow_symlinks=False)"
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "Root normalization and nested-entry traversal are separate decisions; neither span alone establishes the contrast.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "entry-no-follow"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-multi-02",
+      "question": "Why can an indexed repository's Python-file count be smaller than its stored-row count when configuration files are present?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": [
+        "multi_evidence",
+        "mixed_source"
+      ],
+      "source_answerable": true,
+      "expected_answer": "Discovery includes allowlisted config files; storage dispatches .py to the AST chunker and other discovered files to the config text chunker. The Python-file statistic counts only .py paths, while stored rows include config chunks and can include several chunks per Python file.",
+      "required_evidence": [
+        {
+          "evidence_id": "mixed-discovery",
+          "why_required": "Shows that the indexing path uses source discovery with configuration enabled.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/repository_loader.py",
+              "start_line": 112,
+              "end_line": 115,
+              "content_contains": [
+                "include_config=True"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "chunker-dispatch",
+          "why_required": "Shows the distinct Python and config chunking branches.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/storage.py",
+              "start_line": 36,
+              "end_line": 43,
+              "content_contains": [
+                "chunk_python_file",
+                "chunk_config_file"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "python-only-counter",
+          "why_required": "Shows why the returned Python-file count excludes config paths even though their rows are stored.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/storage.py",
+              "start_line": 84,
+              "end_line": 89,
+              "content_contains": [
+                "python_files_discovered=sum(path.suffix == \".py\""
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "The inclusion policy, dispatch decision, and statistic are three different facts needed for the complete answer.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "python-only-counter"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-multi-03",
+      "question": "What happens to an assignment-only Python module between parsing and insertion into the vector table?",
+      "primary_category": "multiple_required_evidence",
+      "secondary_tags": [
+        "multi_evidence",
+        "module_fallback"
+      ],
+      "source_answerable": true,
+      "expected_answer": "With no top-level function or class, the parser emits one whole-module fallback chunk. Storage embeds its content, copies its metadata and vector into CodeChunk, then publishes the rows.",
+      "required_evidence": [
+        {
+          "evidence_id": "assignment-fallback",
+          "why_required": "Establishes the special representation for a module without supported definitions.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/chunker.py",
+              "start_line": 131,
+              "end_line": 145,
+              "content_contains": [
+                "if not symbol_nodes and tree.body",
+                "symbol_type=\"module\""
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "fallback-publication",
+          "why_required": "Establishes that prepared chunk text becomes a vector-backed stored row.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/storage.py",
+              "start_line": 55,
+              "end_line": 74,
+              "content_contains": [
+                "embed_texts([chunk.content for chunk in chunks])",
+                "embedding=embedding"
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "Fallback creation does not itself show embedding or persistence; storage does not explain why this source becomes a module chunk.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "assignment-fallback",
+        "fallback-publication"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-multi-04",
+      "question": "If embedding returns a different number of vectors than prepared chunks, can deletion occur before the error, and how does the index API report it?",
+      "primary_category": "multiple_required_evidence",
+      "secondary_tags": [
+        "multi_evidence",
+        "failure_boundary",
+        "long_chunk",
+        "early_source"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. Storage raises StorageError on the count mismatch before the later DELETE. The index route catches StorageError and returns a generic HTTP 500.",
+      "required_evidence": [
+        {
+          "evidence_id": "mismatch-before-delete",
+          "why_required": "Shows that the count mismatch raises before the later destructive statement.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/storage.py",
+              "start_line": 55,
+              "end_line": 82,
+              "content_contains": [
+                "len(vectors) != len(chunks)",
+                "raise StorageError",
+                "db.execute(delete(CodeChunk)"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "storage-http-error",
+          "why_required": "Shows the API translation of StorageError.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/api/routes.py",
+              "start_line": 76,
+              "end_line": 78,
+              "content_contains": [
+                "StorageError",
+                "status_code=500"
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "The storage chunk establishes pre-delete failure; a separate API route chunk establishes the externally visible status.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "mismatch-before-delete",
+        "storage-http-error"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-multi-05",
+      "question": "How does the configured application name become the title of the FastAPI app?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": [
+        "multi_evidence",
+        "configuration_use"
+      ],
+      "source_answerable": true,
+      "expected_answer": "APP_NAME populates Settings.app_name, and main.py passes get_settings().app_name as FastAPI's title.",
+      "required_evidence": [
+        {
+          "evidence_id": "app-name-setting",
+          "why_required": "Defines the setting and environment alias.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/config.py",
+              "start_line": 30,
+              "end_line": 30,
+              "content_contains": [
+                "validation_alias=\"APP_NAME\""
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "fastapi-title-use",
+          "why_required": "Shows the setting being consumed at app construction.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/main.py",
+              "start_line": 8,
+              "end_line": 10,
+              "content_contains": [
+                "FastAPI(title=get_settings().app_name)"
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "A setting declaration alone does not show where it is consumed; app construction alone does not identify the environment alias.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "app-name-setting"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-multi-06",
+      "question": "Which indexing statistics are calculated by storage and which of them does the HTTP response expose?",
+      "primary_category": "multiple_required_evidence",
+      "secondary_tags": [
+        "multi_evidence",
+        "api_contract"
+      ],
+      "source_answerable": true,
+      "expected_answer": "Storage returns repository, Python files discovered, chunks created, and rows stored; the response schema declares those same fields and the route constructs it from the returned stats.",
+      "required_evidence": [
+        {
+          "evidence_id": "stats-calculation",
+          "why_required": "Shows the values computed after publication.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/storage.py",
+              "start_line": 84,
+              "end_line": 89,
+              "content_contains": [
+                "IndexingStats(",
+                "rows_stored=len(rows)"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "index-response-fields",
+          "why_required": "Shows the public response shape independently of the storage record.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/schemas.py",
+              "start_line": 28,
+              "end_line": 32,
+              "content_contains": [
+                "class IndexRepositoryResponse",
+                "python_files_discovered",
+                "rows_stored"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "route-stats-copy",
+          "why_required": "Shows the route copies storage's result into the response model.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/api/routes.py",
+              "start_line": 76,
+              "end_line": 79,
+              "content_contains": [
+                "IndexRepositoryResponse(**asdict(result))"
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "The storage calculation, declared HTTP schema, and route mapping each establish a separate part of the contract.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "route-stats-copy",
+        "stats-calculation"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-multi-07",
+      "question": "Does Python-source decoding follow the same screening path as allowlisted configuration files during indexing?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": [
+        "multi_evidence",
+        "near_match",
+        "file_reading"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. Discovery samples config candidates for NUL/UTF-8, while discovered Python files are passed to the Python chunker, whose full read_text UTF-8 operation raises SourceReadError on decoding failure.",
+      "required_evidence": [
+        {
+          "evidence_id": "config-sample-screen",
+          "why_required": "Shows the discovery-time screening applied to config candidates.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/repository_loader.py",
+              "start_line": 49,
+              "end_line": 63,
+              "content_contains": [
+                "source_file.read(4096)",
+                "sample.decode(\"utf-8\")"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "config-only-screen-branch",
+          "why_required": "Shows that the sample text check is confined to discovered non-Python config candidates.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/repository_loader.py",
+              "start_line": 92,
+              "end_line": 101,
+              "content_contains": [
+                "entry.name.endswith(\".py\")",
+                "_is_utf8_text_file(path)"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "python-full-read",
+          "why_required": "Shows the distinct full Python-source decoding and error boundary.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/chunker.py",
+              "start_line": 116,
+              "end_line": 121,
+              "content_contains": [
+                "path.read_text(encoding=\"utf-8\")",
+                "SourceReadError"
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "The sample check, its config-only dispatch branch, and the Python full-file read are distinct facts required for the contrast.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "config-only-screen-branch",
+        "python-full-read"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-multi-08",
+      "question": "If a provider returns a malformed completion rather than raising a transport error, how is that failure surfaced through /ask?",
+      "primary_category": "multiple_required_evidence",
+      "secondary_tags": [
+        "multi_evidence",
+        "failure_boundary",
+        "long_chunk",
+        "across_long_chunks"
+      ],
+      "source_answerable": true,
+      "expected_answer": "RAG raises RAGGenerationError for missing or empty answer content, and the ask route translates that class into HTTP 502 with a generic detail.",
+      "required_evidence": [
+        {
+          "evidence_id": "malformed-completion",
+          "why_required": "Shows the service-level error raised for a missing/empty answer.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 136,
+              "end_line": 142,
+              "content_contains": [
+                "RAGGenerationError",
+                "LLM returned an empty answer"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "generation-http-status",
+          "why_required": "Shows how the route translates the service error to HTTP.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/api/routes.py",
+              "start_line": 113,
+              "end_line": 115,
+              "content_contains": [
+                "RAGGenerationError",
+                "status_code=502"
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "The service establishes the failure class and the API establishes its status; neither source alone fully answers the transition.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "generation-http-status",
+        "malformed-completion"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-architecture-01",
+      "question": "What separates the explicitly write-enabled evaluation-corpus preparation path from the default read-only scorer?",
+      "primary_category": "architecture",
+      "secondary_tags": [
+        "evaluation_safety",
+        "multi_evidence"
+      ],
+      "source_answerable": true,
+      "expected_answer": "Preparation demands an exact --confirm-write literal and calls index_repository. The scorer opens a session, marks the transaction read-only, and calls evaluate_dataset without indexing.",
+      "required_evidence": [
+        {
+          "evidence_id": "write-gate",
+          "why_required": "Shows the explicit write confirmation and indexing call.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/scripts/prepare_evaluation_corpus.py",
+              "start_line": 22,
+              "end_line": 30,
+              "content_contains": [
+                "args.confirm_write != CONFIRMATION",
+                "index_repository"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "readonly-score",
+          "why_required": "Shows read-only transaction setup in the scorer.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/scripts/evaluate_retrieval.py",
+              "start_line": 49,
+              "end_line": 65,
+              "content_contains": [
+                "SET TRANSACTION READ ONLY",
+                "evaluate_dataset"
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "The two separate commands must both be inspected to distinguish their write permissions.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-architecture-02",
+      "question": "Why can a prepared corpus keep the same manifest after row IDs change?",
+      "primary_category": "architecture",
+      "secondary_tags": [
+        "reproducibility",
+        "index_identity"
+      ],
+      "source_answerable": true,
+      "expected_answer": "compute_index_manifest hashes repository/source metadata and content, explicitly excluding row IDs and vectors, so equivalent indexed source yields the same manifest.",
+      "required_evidence": [
+        {
+          "evidence_id": "manifest-record-fields",
+          "why_required": "The manifest code shows exactly which fields participate.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/evaluation.py",
+              "start_line": 205,
+              "end_line": 224,
+              "content_contains": [
+                "excluding row IDs and vectors",
+                "\"content\": chunk.content"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-architecture-03",
+      "question": "Before evaluation scores any query, which prepared-corpus mismatches are rejected?",
+      "primary_category": "architecture",
+      "secondary_tags": [
+        "reproducibility",
+        "failure_boundary"
+      ],
+      "source_answerable": true,
+      "expected_answer": "validate_corpus_manifest checks repository scope, nonempty rows, expected chunk count, index manifest hash, and chunking identifier; mismatches raise CorpusManifestMismatch.",
+      "required_evidence": [
+        {
+          "evidence_id": "manifest-validation",
+          "why_required": "The validation branch lists the fail-closed corpus checks.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/evaluation.py",
+              "start_line": 227,
+              "end_line": 262,
+              "content_contains": [
+                "expected_chunk_count",
+                "index_manifest_sha256",
+                "CHUNKING_IDENTIFIER"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "manifest-validation"
+      ],
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-architecture-04",
+      "question": "Why are both Docker's initialization SQL and the backend table-initialization script needed for a fresh development database?",
+      "primary_category": "architecture",
+      "secondary_tags": [
+        "database_setup",
+        "multi_evidence"
+      ],
+      "source_answerable": true,
+      "expected_answer": "The Docker initialization SQL enables pgvector's vector extension. The backend init script separately creates SQLAlchemy tables from Base.metadata; neither operation substitutes for the other.",
+      "required_evidence": [
+        {
+          "evidence_id": "vector-extension-init",
+          "why_required": "Shows the extension installation step.",
+          "acceptable_spans": [
+            {
+              "file_path": "docker/postgres/init.sql",
+              "start_line": 1,
+              "end_line": 1,
+              "content_contains": [
+                "CREATE EXTENSION IF NOT EXISTS vector"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "metadata-table-init",
+          "why_required": "Shows the independent table-creation step.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/scripts/init_db.py",
+              "start_line": 7,
+              "end_line": 11,
+              "content_contains": [
+                "Base.metadata.create_all(bind=engine)"
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "Extension availability and table creation are separate setup responsibilities in separate files.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-architecture-05",
+      "question": "Why does starting the backend from a different working directory not change where its .env file is sought?",
+      "primary_category": "architecture",
+      "secondary_tags": [
+        "configuration",
+        "navigation"
+      ],
+      "source_answerable": true,
+      "expected_answer": "PROJECT_ROOT is derived from config.py's own resolved path; ENV_FILE is PROJECT_ROOT/.env and is passed to the Settings configuration.",
+      "required_evidence": [
+        {
+          "evidence_id": "env-file-location",
+          "why_required": "Shows file-relative location and Settings env_file use.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/config.py",
+              "start_line": 11,
+              "end_line": 23,
+              "content_contains": [
+                "Path(__file__).resolve().parents[2]",
+                "env_file=ENV_FILE"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-architecture-06",
+      "question": "How does the evaluator prevent a case from silently searching a repository different from its declared corpus?",
+      "primary_category": "architecture",
+      "secondary_tags": [
+        "repository_scope",
+        "evaluation_safety"
+      ],
+      "source_answerable": true,
+      "expected_answer": "EvaluationDataset validation compares every case.repository with corpus.repository and rejects any mismatched case IDs.",
+      "required_evidence": [
+        {
+          "evidence_id": "case-corpus-consistency",
+          "why_required": "The dataset model enforces matching repository identities.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/evaluation.py",
+              "start_line": 95,
+              "end_line": 109,
+              "content_contains": [
+                "case.repository != self.corpus.repository",
+                "Cases use a repository other than"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-semantic-01",
+      "question": "If the first retrieved chunk is too large for the answer context, can a later smaller chunk still be included?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "context_selection",
+        "candidate_competition"
+      ],
+      "source_answerable": true,
+      "expected_answer": "Yes. build_context skips a chunk whose complete section exceeds the remaining character budget and continues iterating later candidates.",
+      "required_evidence": [
+        {
+          "evidence_id": "context-skip-continue",
+          "why_required": "The loop uses continue rather than stopping at the first over-budget chunk.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 49,
+              "end_line": 62,
+              "content_contains": [
+                "if used + required > MAX_CONTEXT_CHARACTERS:",
+                "continue",
+                "included_chunks.append(chunk)"
+              ]
+            },
+            {
+              "file_path": "backend/tests/test_rag.py",
+              "start_line": 32,
+              "end_line": 62,
+              "content_contains": [
+                "large_source not in context.included_chunks",
+                "context.included_chunks == [small_source]"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "context-skip-continue"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-semantic-02",
+      "question": "What text does the answer-building path supply as repository context when no complete chunks fit?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "context_selection",
+        "empty_result"
+      ],
+      "source_answerable": true,
+      "expected_answer": "build_context returns the fixed text 'No repository context was retrieved.' with an empty included-chunk list.",
+      "required_evidence": [
+        {
+          "evidence_id": "empty-context-placeholder",
+          "why_required": "The return branch defines the no-context representation.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 64,
+              "end_line": 67,
+              "content_contains": [
+                "No repository context was retrieved.",
+                "included_chunks=included_chunks"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-semantic-03",
+      "question": "What makes source discovery's final file order stable even when filesystem enumeration order differs?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "determinism",
+        "discovery"
+      ],
+      "source_answerable": true,
+      "expected_answer": "Entries are sorted by name within each directory, and the collected paths are sorted again by repository-relative POSIX path before return.",
+      "required_evidence": [
+        {
+          "evidence_id": "relative-source-sort",
+          "why_required": "Shows both entry ordering and the final relative-path sort.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/repository_loader.py",
+              "start_line": 76,
+              "end_line": 109,
+              "content_contains": [
+                "sorted(entries, key=lambda entry: entry.name)",
+                "path.relative_to(root).as_posix()"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "relative-source-sort"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-semantic-04",
+      "question": "What happens if the embedding encoder returns a vector with the wrong number of dimensions?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "embedding_validation",
+        "failure_boundary",
+        "multi_evidence"
+      ],
+      "source_answerable": true,
+      "expected_answer": "_validate_vectors checks every returned vector against EMBEDDING_DIMENSION and raises EmbeddingError before embed_texts returns the batch.",
+      "required_evidence": [
+        {
+          "evidence_id": "per-vector-dimension-check",
+          "why_required": "Shows validation of each encoded vector and the failure class.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/embeddings.py",
+              "start_line": 39,
+              "end_line": 46,
+              "content_contains": [
+                "for index, vector in enumerate(vectors)",
+                "raise EmbeddingError"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "validator-called-before-return",
+          "why_required": "Shows embed_texts actually invokes vector validation before returning the batch.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/embeddings.py",
+              "start_line": 63,
+              "end_line": 68,
+              "content_contains": [
+                "_validate_vectors(vectors)",
+                "return vectors"
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "The validator body defines the rule, while the separate embed_texts chunk proves that real batches pass through it.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-semantic-05",
+      "question": "Will a Python file containing only comments be emitted as a module fallback chunk?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "source_coverage",
+        "edge_case"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. The fallback requires a nonempty AST body as well as nonblank source; a comment-only file has no statements, so the returned chunk list is empty.",
+      "required_evidence": [
+        {
+          "evidence_id": "fallback-body-guard",
+          "why_required": "The fallback's tree.body condition excludes comment-only modules.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/chunker.py",
+              "start_line": 131,
+              "end_line": 148,
+              "content_contains": [
+                "if not symbol_nodes and tree.body and source.strip():",
+                "chunks: list[SourceChunk] = []"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "fallback-body-guard"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-semantic-06",
+      "question": "When configuration text contains blank or comment lines next to values, does chunk creation reconstruct or omit those lines?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "config_source",
+        "provenance"
+      ],
+      "source_answerable": true,
+      "expected_answer": "The config chunker joins pending pieces from the original lines and emits their exact text when that pending group contains non-whitespace; adjacent blank/comment lines remain in that source slice.",
+      "required_evidence": [
+        {
+          "evidence_id": "pending-original-text",
+          "why_required": "The pending join and append retain original text rather than parsing configuration meaning.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/text_chunker.py",
+              "start_line": 49,
+              "end_line": 75,
+              "content_contains": [
+                "content=\"\".join(text for _, text in pending)",
+                "for line_number, text in _bounded_line_pieces(source)"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "pending-original-text"
+      ],
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-exact-01",
+      "question": "Which batch-size setting reaches the local encoder when several chunks are embedded together?",
+      "primary_category": "configuration_constants",
+      "secondary_tags": [
+        "exact_token",
+        "embedding_batch",
+        "multi_evidence"
+      ],
+      "source_answerable": true,
+      "expected_answer": "DEFAULT_BATCH_SIZE is 32 and embed_texts passes it as the model.encode batch_size argument.",
+      "required_evidence": [
+        {
+          "evidence_id": "batch-size-definition",
+          "why_required": "Defines the constant's value.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/embeddings.py",
+              "start_line": 9,
+              "end_line": 10,
+              "content_contains": [
+                "DEFAULT_BATCH_SIZE = 32"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "batch-size-use",
+          "why_required": "Shows it is actually passed to model.encode.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/embeddings.py",
+              "start_line": 54,
+              "end_line": 62,
+              "content_contains": [
+                "model.encode(",
+                "batch_size=DEFAULT_BATCH_SIZE"
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "The declaration provides the value; the encoder call proves where it is consumed.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-exact-02",
+      "question": "How is the synchronous session factory configured with respect to autoflush and autocommit?",
+      "primary_category": "configuration_constants",
+      "secondary_tags": [
+        "exact_token",
+        "database_session"
+      ],
+      "source_answerable": true,
+      "expected_answer": "SessionLocal binds to engine with autoflush=False and autocommit=False.",
+      "required_evidence": [
+        {
+          "evidence_id": "sessionmaker-options",
+          "why_required": "The factory declaration carries both options.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/database.py",
+              "start_line": 11,
+              "end_line": 12,
+              "content_contains": [
+                "autoflush=False",
+                "autocommit=False"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-exact-03",
+      "question": "What local command does the Compose database healthcheck run before reporting the PostgreSQL service ready?",
+      "primary_category": "configuration_constants",
+      "secondary_tags": [
+        "exact_token",
+        "database_setup"
+      ],
+      "source_answerable": true,
+      "expected_answer": "The healthcheck invokes pg_isready with the configured POSTGRES_USER and POSTGRES_DB, at five-second intervals with ten retries.",
+      "required_evidence": [
+        {
+          "evidence_id": "postgres-healthcheck",
+          "why_required": "The Compose healthcheck lists its command and timing.",
+          "acceptable_spans": [
+            {
+              "file_path": "docker-compose.yml",
+              "start_line": 13,
+              "end_line": 17,
+              "content_contains": [
+                "pg_isready",
+                "interval: 5s",
+                "retries: 10"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-exact-04",
+      "question": "How many retries can configuration permit for the answer provider, even if the default is lower?",
+      "primary_category": "configuration_constants",
+      "secondary_tags": [
+        "exact_token",
+        "provider_config"
+      ],
+      "source_answerable": true,
+      "expected_answer": "llm_max_retries defaults to 2 and Settings validation caps it at 5.",
+      "required_evidence": [
+        {
+          "evidence_id": "retry-setting-bounds",
+          "why_required": "Shows both default and upper validation bound.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/config.py",
+              "start_line": 45,
+              "end_line": 50,
+              "content_contains": [
+                "default=2",
+                "le=5"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "retry-setting-bounds"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-exact-05",
+      "question": "What structural label does the Python chunker give an async top-level function, rather than a regular function or class?",
+      "primary_category": "exact_identifier",
+      "secondary_tags": [
+        "exact_token",
+        "chunk_identity"
+      ],
+      "source_answerable": true,
+      "expected_answer": "_symbol_type returns async_function for ast.AsyncFunctionDef, function for FunctionDef, and class otherwise.",
+      "required_evidence": [
+        {
+          "evidence_id": "async-symbol-label",
+          "why_required": "The dispatch shows the distinct structural labels.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/chunker.py",
+              "start_line": 34,
+              "end_line": 39,
+              "content_contains": [
+                "ast.AsyncFunctionDef",
+                "return \"async_function\"",
+                "return \"function\""
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-near-01",
+      "question": "How does a module with no top-level definitions differ from uncovered statements in a module that does have a definition?",
+      "primary_category": "difficult_near_matches",
+      "secondary_tags": [
+        "distractor",
+        "module_structure"
+      ],
+      "source_answerable": true,
+      "expected_answer": "A source module with statements but no supported definitions gets a whole-file module fallback; otherwise uncovered consecutive statements become module_companion chunks beside function/class chunks.",
+      "required_evidence": [
+        {
+          "evidence_id": "module-vs-companion",
+          "why_required": "The same implementation chunk contains both branches needed for the contrast.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/chunker.py",
+              "start_line": 131,
+              "end_line": 175,
+              "content_contains": [
+                "if not symbol_nodes",
+                "symbol_type=\"module\"",
+                "symbol_type=\"module_companion\""
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "module-vs-companion"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-near-02",
+      "question": "Does the config chunker use the same error for a path outside the repository as for an unreadable file inside it?",
+      "primary_category": "difficult_near_matches",
+      "secondary_tags": [
+        "distractor",
+        "error_boundary"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. A path failing relative_to raises SourceFileError, while read_text failures raise the more specific SourceReadError.",
+      "required_evidence": [
+        {
+          "evidence_id": "config-path-versus-read",
+          "why_required": "The adjacent exception branches distinguish provenance validation from reading.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/text_chunker.py",
+              "start_line": 32,
+              "end_line": 44,
+              "content_contains": [
+                "raise SourceFileError",
+                "raise SourceReadError"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "config-path-versus-read"
+      ],
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-near-03",
+      "question": "Can a search request containing only spaces reach a different validation boundary from an empty query string?",
+      "primary_category": "difficult_near_matches",
+      "secondary_tags": [
+        "distractor",
+        "input_validation",
+        "multi_evidence"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. SearchRequest's min_length=1 rejects an empty string, but whitespace satisfies that field length; embed_query later strips and rejects a whitespace-only query.",
+      "required_evidence": [
+        {
+          "evidence_id": "search-schema-min-length",
+          "why_required": "Shows the HTTP-level minimum length, which is not a whitespace trim.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/schemas.py",
+              "start_line": 35,
+              "end_line": 40,
+              "content_contains": [
+                "query: str = Field(min_length=1)"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "embedding-whitespace-guard",
+          "why_required": "Shows the direct service check applied after stripping whitespace.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/embeddings.py",
+              "start_line": 71,
+              "end_line": 76,
+              "content_contains": [
+                "if not query.strip()",
+                "Query must not be empty"
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "The schema and embedding helper enforce different notions of emptiness, requiring both sources to explain the contrast.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-near-04",
+      "question": "If repository traversal fails, does the indexing API use the same client-facing error message as a Python source read failure?",
+      "primary_category": "difficult_near_matches",
+      "secondary_tags": [
+        "distractor",
+        "http_error"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. RepositoryReadError produces 'Could not safely read the repository directories.'; SourceReadError produces 'Could not safely read the repository source files.' Both use HTTP 400.",
+      "required_evidence": [
+        {
+          "evidence_id": "distinct-read-http-details",
+          "why_required": "The route has separate branches and stable details.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/api/routes.py",
+              "start_line": 64,
+              "end_line": 73,
+              "content_contains": [
+                "RepositoryReadError",
+                "SourceReadError",
+                "repository directories.",
+                "repository source files."
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "distinct-read-http-details"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-near-05",
+      "question": "Are repository and file path optional on stored code chunks in the same way symbol name is?",
+      "primary_category": "difficult_near_matches",
+      "secondary_tags": [
+        "distractor",
+        "database_model"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. repository and file_path are required non-null strings; only symbol_name is nullable.",
+      "required_evidence": [
+        {
+          "evidence_id": "nullable-vs-required-columns",
+          "why_required": "The ORM column declarations show different nullability.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/models.py",
+              "start_line": 17,
+              "end_line": 25,
+              "content_contains": [
+                "repository: Mapped[str]",
+                "file_path: Mapped[str]",
+                "symbol_name: Mapped[str | None]"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-long-01",
+      "question": "What happens if the AST reports no end-line location for a supported top-level symbol during chunking?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "long_chunk",
+        "later_source",
+        "ast_metadata"
+      ],
+      "source_answerable": true,
+      "expected_answer": "chunk_python_file raises SourceFileError rather than emitting a chunk with an invented end boundary.",
+      "required_evidence": [
+        {
+          "evidence_id": "symbol-endline-guard",
+          "why_required": "The supported-symbol branch explicitly checks end_lineno before slicing source.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/chunker.py",
+              "start_line": 175,
+              "end_line": 188,
+              "content_contains": [
+                "if node.end_lineno is None:",
+                "Missing end-line metadata"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "symbol-endline-guard"
+      ],
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-long-02",
+      "question": "How does answer generation treat a completion with no choice compared with one whose message content is empty?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "long_chunk",
+        "later_source",
+        "provider_boundary"
+      ],
+      "source_answerable": true,
+      "expected_answer": "Missing choices/message content shape raises RAGGenerationError for a response without an answer; empty answer content raises RAGGenerationError with a separate empty-answer message.",
+      "required_evidence": [
+        {
+          "evidence_id": "completion-shape-and-empty",
+          "why_required": "The late response-validation branch distinguishes malformed structure from empty content.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 136,
+              "end_line": 142,
+              "content_contains": [
+                "completion.choices[0].message.content",
+                "LLM response did not contain an answer",
+                "LLM returned an empty answer"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "completion-shape-and-empty"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-long-03",
+      "question": "How does discovery handle an OS error while classifying an individual directory entry, after the directory has already opened?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "long_chunk",
+        "later_source",
+        "fail_closed_discovery"
+      ],
+      "source_answerable": true,
+      "expected_answer": "The entry-classification try block catches OSError and raises RepositoryReadError, so discovery fails instead of silently returning a partial file list.",
+      "required_evidence": [
+        {
+          "evidence_id": "entry-classification-error",
+          "why_required": "The late traversal branch handles individual DirEntry failures.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/repository_loader.py",
+              "start_line": 102,
+              "end_line": 105,
+              "content_contains": [
+                "except OSError as exc:",
+                "Could not classify repository entry"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "entry-classification-error"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-long-04",
+      "question": "What upper bound applies to an operator-supplied LLM request timeout?",
+      "primary_category": "configuration_constants",
+      "secondary_tags": [
+        "long_chunk",
+        "later_source",
+        "provider_config"
+      ],
+      "source_answerable": true,
+      "expected_answer": "Settings.llm_timeout_seconds defaults to 30.0 seconds, must be positive, and cannot exceed 300 seconds.",
+      "required_evidence": [
+        {
+          "evidence_id": "timeout-upper-bound",
+          "why_required": "The Settings field declares its default and validation limit.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/config.py",
+              "start_line": 39,
+              "end_line": 44,
+              "content_contains": [
+                "default=30.0",
+                "le=300",
+                "LLM_TIMEOUT_SECONDS"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "timeout-upper-bound"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-long-05",
+      "question": "What reproducibility details does the evaluator attach to its report after scoring cases?",
+      "primary_category": "architecture",
+      "secondary_tags": [
+        "long_chunk",
+        "later_source",
+        "evaluation_metadata"
+      ],
+      "source_answerable": true,
+      "expected_answer": "The report records dataset and case-set hashes, corpus manifest and source revision, Git revision/dirty flag, model identity and limit, chunking identifier, candidate depth, context budget and package versions.",
+      "required_evidence": [
+        {
+          "evidence_id": "report-reproducibility-fields",
+          "why_required": "The late result-construction branch enumerates report metadata.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/evaluation.py",
+              "start_line": 609,
+              "end_line": 643,
+              "content_contains": [
+                "\"reproducibility\"",
+                "\"case_set_sha256\"",
+                "\"chunking_identifier\""
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "report-reproducibility-fields"
+      ],
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-mixed-01",
+      "question": "When /ask receives a repository selection, through which request and service fields does it reach retrieval?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": [
+        "mixed_semantic_exact",
+        "multi_evidence",
+        "repository_scope"
+      ],
+      "source_answerable": true,
+      "expected_answer": "AskRequest carries an optional repository field; the route passes it to answer_question, which passes it into search_code.",
+      "required_evidence": [
+        {
+          "evidence_id": "ask-request-scope",
+          "why_required": "Shows the incoming field on the ask request model.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/schemas.py",
+              "start_line": 58,
+              "end_line": 63,
+              "content_contains": [
+                "class AskRequest",
+                "repository: str | None = None"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "ask-route-forwarding",
+          "why_required": "Shows the HTTP-to-service handoff.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/api/routes.py",
+              "start_line": 97,
+              "end_line": 108,
+              "content_contains": [
+                "answer_question(",
+                "request.repository"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "rag-retrieval-forwarding",
+          "why_required": "Shows the service-to-retriever handoff.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 96,
+              "end_line": 110,
+              "content_contains": [
+                "repository: str | None = None",
+                "search_code(db, question, top_k, repository)"
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "The request field, route mapping, and RAG retrieval call form three distinct handoffs.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [
+        "ask-route-forwarding",
+        "rag-retrieval-forwarding"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-mixed-02",
+      "question": "How does the example Postgres port setting relate to Compose's published port, and what must the local DATABASE_URL target?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": [
+        "mixed_semantic_exact",
+        "multi_evidence",
+        "configuration_use"
+      ],
+      "source_answerable": true,
+      "expected_answer": ".env.example declares POSTGRES_PORT and a localhost:5432 DATABASE_URL; Compose uses POSTGRES_PORT for the host-side loopback binding. If the port changes, DATABASE_URL must target the chosen host port.",
+      "required_evidence": [
+        {
+          "evidence_id": "example-url-and-port",
+          "why_required": "Shows the backend URL and the configured Compose host port together in the example file.",
+          "acceptable_spans": [
+            {
+              "file_path": ".env.example",
+              "start_line": 1,
+              "end_line": 21,
+              "content_contains": [
+                "localhost:5432",
+                "POSTGRES_PORT=5432"
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "compose-port-substitution",
+          "why_required": "Shows where Compose consumes the port setting.",
+          "acceptable_spans": [
+            {
+              "file_path": "docker-compose.yml",
+              "start_line": 8,
+              "end_line": 9,
+              "content_contains": [
+                "POSTGRES_PORT:-5432"
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "The example file establishes both application URL and configured host port; the separate Compose file establishes how that port is published.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-mixed-03",
+      "question": "For a local OpenAI-compatible server, how does the documented placeholder API-key setting reach the created client?",
+      "primary_category": "cross_module_behavior",
+      "secondary_tags": [
+        "mixed_semantic_exact",
+        "multi_evidence",
+        "provider_config"
+      ],
+      "source_answerable": true,
+      "expected_answer": "The example says to use the local server's accepted placeholder API key; _create_client passes the configured API key into the OpenAI client options.",
+      "required_evidence": [
+        {
+          "evidence_id": "placeholder-key-guidance",
+          "why_required": "Shows the documented local-server configuration expectation.",
+          "acceptable_spans": [
+            {
+              "file_path": ".env.example",
+              "start_line": 9,
+              "end_line": 13,
+              "content_contains": [
+                "placeholder API key",
+                "LLM_API_KEY="
+              ]
+            }
+          ]
+        },
+        {
+          "evidence_id": "client-key-option",
+          "why_required": "Shows the runtime client receives that setting.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 85,
+              "end_line": 93,
+              "content_contains": [
+                "\"api_key\": api_key",
+                "return OpenAI(**options)"
+              ]
+            }
+          ]
+        }
+      ],
+      "multi_evidence_reason": "Documentation explains the local-server value; client construction establishes its runtime use.",
+      "one_unit_sufficient": false,
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-mixed-04",
+      "question": "What source identity is shown for a chunk without a symbol name in the model context?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "mixed_semantic_exact",
+        "context_provenance"
+      ],
+      "source_answerable": true,
+      "expected_answer": "build_context substitutes <module> for a missing symbol name and includes repository/file path, symbol type and line range in its source header.",
+      "required_evidence": [
+        {
+          "evidence_id": "module-context-header",
+          "why_required": "The header construction shows the fallback label and provenance fields.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 49,
+              "end_line": 54,
+              "content_contains": [
+                "chunk.symbol_name or \"<module>\"",
+                "chunk.repository",
+                "chunk.start_line"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-mixed-05",
+      "question": "Why does a valid but unknown repository name produce no scoped semantic hits instead of switching to a global search?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "mixed_semantic_exact",
+        "repository_scope"
+      ],
+      "source_answerable": true,
+      "expected_answer": "A supplied nonblank repository is used as a SQL equality predicate before ordering and limiting; there is no fallback branch when it matches zero rows.",
+      "required_evidence": [
+        {
+          "evidence_id": "scoped-sql-predicate",
+          "why_required": "The search statement applies repository filtering prior to ranking and limiting.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/retrieval.py",
+              "start_line": 45,
+              "end_line": 65,
+              "content_contains": [
+                "statement.where(CodeChunk.repository == scope)",
+                ".limit(limit)"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "scoped-sql-predicate"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-ordinary-01",
+      "question": "Are methods inside a Python class emitted as separate chunks by the accepted AST policy?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "ordinary_developer_question",
+        "chunk_structure"
+      ],
+      "source_answerable": true,
+      "expected_answer": "No. The loop selects only top-level FunctionDef, AsyncFunctionDef and ClassDef nodes from tree.body, emitting the whole class node as a class chunk rather than visiting each method.",
+      "required_evidence": [
+        {
+          "evidence_id": "top-level-only-loop",
+          "why_required": "The top-level node selection and chunk append show the class granularity.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/chunker.py",
+              "start_line": 131,
+              "end_line": 190,
+              "content_contains": [
+                "tree.body",
+                "ast.ClassDef",
+                "symbol_type=_symbol_type(node)"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "top-level-only-loop"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-ordinary-02",
+      "question": "What instruction tells the answer provider to acknowledge insufficient repository evidence?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "ordinary_developer_question",
+        "grounding"
+      ],
+      "source_answerable": true,
+      "expected_answer": "SYSTEM_PROMPT tells the model to answer from supplied repository context, avoid invented behavior, and say clearly when context is insufficient.",
+      "required_evidence": [
+        {
+          "evidence_id": "insufficient-context-instruction",
+          "why_required": "The fixed system prompt carries the grounding instruction.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/rag.py",
+              "start_line": 13,
+              "end_line": 17,
+              "content_contains": [
+                "If the supplied context is insufficient, say so clearly."
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-ordinary-03",
+      "question": "What location detail does a Python syntax-error message include when AST parsing fails?",
+      "primary_category": "semantic_conceptual",
+      "secondary_tags": [
+        "ordinary_developer_question",
+        "source_errors"
+      ],
+      "source_answerable": true,
+      "expected_answer": "chunk_python_file reports the relative file path, line number if available, and parser message in SourceFileError.",
+      "required_evidence": [
+        {
+          "evidence_id": "syntax-error-location",
+          "why_required": "The ast.parse exception branch formats the source error location.",
+          "acceptable_spans": [
+            {
+              "file_path": "backend/app/services/chunker.py",
+              "start_line": 123,
+              "end_line": 129,
+              "content_contains": [
+                "line {exc.lineno}",
+                "Invalid Python syntax"
+              ]
+            }
+          ]
+        }
+      ],
+      "oversized_evidence_ids": [
+        "syntax-error-location"
+      ],
+      "dev1_overlap": "LOW",
+      "holdout_overlap": "LOW"
+    },
+    {
+      "case_id": "dev2-unanswerable-01",
+      "question": "Where does indexing enforce a maximum byte size for each individual Python source file before embedding it?",
+      "primary_category": "unanswerable_insufficient_context",
+      "secondary_tags": [
+        "unanswerable",
+        "file_size_policy"
+      ],
+      "source_answerable": false,
+      "expected_answer": "No per-Python-file byte limit is configured or enforced by the frozen source. The config-chunk character cap is a chunking limit, not a Python-file ingestion limit.",
+      "missing_reason": "The frozen discovery/chunking/indexing path has no maximum byte size for an individual Python file.",
+      "required_evidence": [],
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE"
+    },
+    {
+      "case_id": "dev2-unanswerable-02",
+      "question": "Where does the backend verify that file-path citations written in an LLM answer refer to the returned source list?",
+      "primary_category": "unanswerable_insufficient_context",
+      "secondary_tags": [
+        "unanswerable",
+        "citation_validation"
+      ],
+      "source_answerable": false,
+      "expected_answer": "The frozen backend has no post-generation citation validator. It returns generated text and the supplied context's sources, but does not parse or check citations in the answer text.",
+      "missing_reason": "There is no answer-text citation parser or validator in the frozen RAG/API path.",
+      "required_evidence": [],
+      "oversized_evidence_ids": [],
+      "dev1_overlap": "NONE",
+      "holdout_overlap": "NONE"
+    }
+  ]
+}
