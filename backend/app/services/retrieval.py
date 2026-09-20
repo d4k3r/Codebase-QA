@@ -39,6 +39,10 @@ class RetrievedChunk:
     lexical_rank: int | None = None
     fusion_score: float | None = None
     fusion_rank: int | None = None
+    reranker_score: float | None = None
+    reranker_rank: int | None = None
+    reranker_input_tokens: int | None = None
+    reranker_input_truncated: bool | None = None
 
 
 def search_code(
@@ -269,6 +273,32 @@ def retrieve_code(
         raise ValueError("rrf_constant must be positive")
     if repository is not None and not repository.strip():
         raise ValueError("Repository scope must not be blank")
+    fused, _ = hybrid_candidate_pool(
+        db, query, repository, branch_depth, rrf_constant, limit
+    )
+    return fused
+
+
+def hybrid_candidate_pool(
+    db: Session,
+    query: str,
+    repository: str | None,
+    branch_depth: int = RRF_BRANCH_DEPTH,
+    rrf_constant: int = RRF_CONSTANT,
+    fused_depth: int = MAX_TOP_K,
+) -> tuple[list[RetrievedChunk], int]:
+    """Get one scoped, consistent 50+50 union, ordered by existing RRF.
+
+    The return count includes all unique candidates, including those below the
+    bounded fused depth. Reranking never performs another search.
+    """
+
+    if not 1 <= branch_depth <= MAX_TOP_K or not 1 <= fused_depth <= MAX_TOP_K:
+        raise ValueError("Invalid branch_depth or fused_depth")
+    if rrf_constant < 1:
+        raise ValueError("rrf_constant must be positive")
+    if repository is not None and not repository.strip():
+        raise ValueError("Repository scope must not be blank")
     # A fresh session gets one short, repeatable-read snapshot. An existing
     # transaction is accepted only if its caller already established that level.
     try:
@@ -283,4 +313,5 @@ def retrieve_code(
         raise RetrievalError("Could not establish a consistent retrieval snapshot") from exc
     dense = search_code(db, query, branch_depth, repository)
     lexical = search_lexical(db, query, branch_depth, repository)
-    return fuse_rrf(dense, lexical, limit, rrf_constant)
+    union_size = len({_identity(chunk) for chunk in [*dense, *lexical]})
+    return fuse_rrf(dense, lexical, fused_depth, rrf_constant), union_size

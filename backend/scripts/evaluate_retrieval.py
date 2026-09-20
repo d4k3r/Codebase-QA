@@ -7,8 +7,8 @@ from pathlib import Path
 from sqlalchemy import text
 
 from app.database import SessionLocal
-from app.evaluation import EvaluationError, evaluate_dataset, load_dataset
-from app.services.retrieval import RRF_BRANCH_DEPTH, RRF_CONSTANT, RetrievalMode
+from app.evaluation import EvaluationError, EvaluationMode, evaluate_dataset, load_dataset
+from app.services.retrieval import RRF_BRANCH_DEPTH, RRF_CONSTANT
 
 
 DEFAULT_DATASET = (
@@ -40,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--mode",
-        choices=("dense", "lexical", "hybrid"),
+        choices=("dense", "lexical", "hybrid", "rerank"),
         default="dense",
         help="Explicit retrieval experiment mode; dense remains the default.",
     )
@@ -51,6 +51,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--rrf-constant", type=int, default=RRF_CONSTANT,
         help="Positive RRF rank constant in hybrid mode (default: 60).",
+    )
+    parser.add_argument(
+        "--rerank-depth", type=int, choices=(20, 50), default=20,
+        help="RRF-ordered candidates scored by the local reranker (20 or 50).",
     )
     parser.add_argument(
         "--output",
@@ -65,9 +69,10 @@ def run(
     dataset_path: Path,
     repository: str,
     candidate_depth: int,
-    mode: RetrievalMode = "dense",
+    mode: EvaluationMode = "dense",
     branch_depth: int = RRF_BRANCH_DEPTH,
     rrf_constant: int = RRF_CONSTANT,
+    rerank_depth: int = 20,
 ) -> dict[str, object]:
     """Run read-only scoring against an existing compatible corpus."""
 
@@ -83,6 +88,7 @@ def run(
             mode=mode,
             branch_depth=branch_depth,
             rrf_constant=rrf_constant,
+            rerank_depth=rerank_depth,
         )
 
 
@@ -97,6 +103,7 @@ def main() -> None:
             args.mode,
             args.branch_depth,
             args.rrf_constant,
+            args.rerank_depth,
         )
     except (EvaluationError, OSError, ValueError) as exc:
         parser.error(str(exc))

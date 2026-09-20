@@ -123,6 +123,7 @@ is small and pending human review, so tiny aggregate differences are not statist
 claims. BM25 was not implemented: this first comparison already establishes signal
 complementarity, while lexical tokenization/ranking and question wording both need
 review before attributing misses to the rank formula. A later reranker experiment is
-plausible because the 50+50 union contains every required unit, but no reranker or
-structure-aware routing is part of this batch. The accepted Batch 2A chunking policy
+plausible because the 50+50 union contains every required unit. A subsequent
+[local reranking experiment](reranking-experiment.md) measured that headroom;
+structure-aware routing remains unimplemented. The accepted Batch 2A chunking policy
 still leaves 35/212 embeddings beyond MiniLM's 256-token effective input length.

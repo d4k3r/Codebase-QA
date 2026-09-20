@@ -19,11 +19,16 @@ from app.models import CodeChunk
 from app.services.chunker import CHUNKING_IDENTIFIER
 from app.services.embeddings import EMBEDDING_DIMENSION, get_embedding_model
 from app.services.rag import MAX_CONTEXT_CHARACTERS, build_context
+from app.services.reranking import (
+    RERANKER_MODEL,
+    RERANKER_REVISION,
+    RERANK_DEPTHS,
+    rerank_hybrid,
+)
 from app.services.retrieval import (
     MAX_TOP_K,
     RRF_BRANCH_DEPTH,
     RRF_CONSTANT,
-    RetrievalMode,
     RetrievedChunk,
     retrieve_code,
     search_code,
@@ -32,6 +37,7 @@ from app.services.retrieval import (
 
 METRIC_DEPTHS = (1, 3, 5, 10)
 DATASET_FORMAT_VERSION = 1
+EvaluationMode = Literal["dense", "lexical", "hybrid", "rerank"]
 
 
 class EvaluationError(RuntimeError):
@@ -527,9 +533,10 @@ def evaluate_dataset(
     dataset_hash: str,
     repository: str,
     candidate_depth: int = 10,
-    mode: RetrievalMode = "dense",
+    mode: EvaluationMode = "dense",
     branch_depth: int = RRF_BRANCH_DEPTH,
     rrf_constant: int = RRF_CONSTANT,
+    rerank_depth: int = 20,
 ) -> dict[str, object]:
     """Evaluate one prepared corpus using scoped retrieval and production context."""
 
@@ -543,14 +550,26 @@ def evaluate_dataset(
     indexed_chunks = load_indexed_chunks(db, scope)
     actual_manifest = validate_corpus_manifest(dataset, scope, indexed_chunks)
     token_diagnostics, model_metadata = collect_embedding_diagnostics(indexed_chunks)
+    if mode == "rerank" and rerank_depth not in RERANK_DEPTHS:
+        raise EvaluationError("rerank_depth must be 20 or 50")
 
     outcomes: list[CaseOutcome] = []
     case_reports: list[dict[str, object]] = []
+    rerank_results = []
     for case in dataset.cases:
+        rerank_result = None
         if mode == "dense":
             candidates = search_code(
                 db, case.question, top_k=candidate_depth, repository=scope
             )
+        elif mode == "rerank":
+            rerank_result = rerank_hybrid(
+                db, case.question, candidate_depth, scope,
+                depth=rerank_depth, branch_depth=branch_depth,
+                rrf_constant=rrf_constant,
+            )
+            candidates = rerank_result.candidates
+            rerank_results.append(rerank_result)
         else:
             candidates = retrieve_code(
                 db,
@@ -578,6 +597,33 @@ def evaluate_dataset(
         )
         outcomes.append(outcome)
         retrieved_all = outcome.retrieved_at(candidate_depth)
+        evidence_ranks = None
+        if rerank_result is not None:
+            evidence_ranks = {}
+            for evidence_id in sorted(required_ids):
+                def matching_chunk(pool: list[RetrievedChunk]) -> RetrievedChunk | None:
+                    return next(
+                        (
+                            chunk
+                            for chunk in pool
+                            if evidence_id in evidence_matches(case, [chunk])
+                        ),
+                        None,
+                    )
+                pre_chunk = matching_chunk(rerank_result.pre_rerank_candidates)
+                scored_chunk = matching_chunk(rerank_result.ranked_candidates)
+                evidence_ranks[evidence_id] = {
+                    "rrf_rank": pre_chunk.fusion_rank if pre_chunk else None,
+                    "reranker_rank": (
+                        scored_chunk.reranker_rank if scored_chunk else None
+                    ),
+                    "reranker_input_tokens": (
+                        scored_chunk.reranker_input_tokens if scored_chunk else None
+                    ),
+                    "reranker_input_truncated": (
+                        scored_chunk.reranker_input_truncated if scored_chunk else None
+                    ),
+                }
         case_reports.append(
             {
                 "case_id": case.case_id,
@@ -593,6 +639,16 @@ def evaluate_dataset(
                 "context_evidence_ids": sorted(context_evidence),
                 "selection_losses": sorted(retrieved_all - context_evidence),
                 "context_size_characters": len(context.text),
+                "candidate_union_size": (
+                    rerank_result.union_size if rerank_result else None
+                ),
+                "reranked_candidates": (
+                    rerank_result.scored_candidates if rerank_result else None
+                ),
+                "reranker_truncated_inputs": (
+                    rerank_result.truncated_inputs if rerank_result else None
+                ),
+                "rerank_evidence_ranks": evidence_ranks,
                 "context_source_ids": [
                     _source_identifier(chunk) for chunk in context.included_chunks
                 ],
@@ -612,6 +668,10 @@ def evaluate_dataset(
                         "lexical_rank": candidate.lexical_rank,
                         "fusion_score": candidate.fusion_score,
                         "fusion_rank": candidate.fusion_rank,
+                        "reranker_score": candidate.reranker_score,
+                        "reranker_rank": candidate.reranker_rank,
+                        "reranker_input_tokens": candidate.reranker_input_tokens,
+                        "reranker_input_truncated": candidate.reranker_input_truncated,
                         "matched_evidence_ids": sorted(candidate_matches[rank - 1]),
                         "embedding_input": token_diagnostics.get(
                             _source_identifier(candidate),
@@ -654,8 +714,25 @@ def evaluate_dataset(
             "chunking_identifier": CHUNKING_IDENTIFIER,
             "candidate_depth": candidate_depth,
             "retrieval_mode": mode,
-            "rrf_constant": rrf_constant if mode == "hybrid" else None,
-            "rrf_branch_depth": branch_depth if mode == "hybrid" else None,
+            "rrf_constant": rrf_constant if mode in {"hybrid", "rerank"} else None,
+            "rrf_branch_depth": branch_depth if mode in {"hybrid", "rerank"} else None,
+            "reranker_model": RERANKER_MODEL if mode == "rerank" else None,
+            "reranker_requested_revision": (
+                RERANKER_REVISION if mode == "rerank" else None
+            ),
+            "reranker_revision": (
+                rerank_results[0].model_revision if rerank_results else None
+            ),
+            "reranker_depth": rerank_depth if mode == "rerank" else None,
+            "reranker_device": (
+                rerank_results[0].device if rerank_results else None
+            ),
+            "reranker_model_input_limit": (
+                rerank_results[0].model_input_limit if rerank_results else None
+            ),
+            "reranker_model_parameters": (
+                rerank_results[0].model_parameters if rerank_results else None
+            ),
             "context_budget_characters": MAX_CONTEXT_CHARACTERS,
             "package_versions": _package_versions(),
         },
@@ -664,6 +741,23 @@ def evaluate_dataset(
             "actual_chunk_count": len(indexed_chunks),
             "embedding_input_diagnostics": _embedding_summary(token_diagnostics),
             "embedding_diagnostic_metadata": model_metadata,
+            "reranker_diagnostics": (
+                {
+                    "candidate_pairs_scored": sum(
+                        result.scored_candidates for result in rerank_results
+                    ),
+                    "candidate_pairs_exceeding_input_limit": sum(
+                        result.truncated_inputs for result in rerank_results
+                    ),
+                    "maximum_input_tokens": max(
+                        (result.maximum_input_tokens for result in rerank_results),
+                        default=None,
+                    ),
+                    "candidate_union_sizes": [
+                        result.union_size for result in rerank_results
+                    ],
+                } if rerank_results else None
+            ),
         },
         "metrics": calculate_metrics(outcomes),
         "cases": case_reports,

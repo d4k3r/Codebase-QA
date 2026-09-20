@@ -12,7 +12,7 @@ from app import evaluation
 from app.database import SessionLocal, engine
 from app.models import Base, CodeChunk
 from app.services.chunker import SourceFileError
-from app.services import retrieval
+from app.services import reranking, retrieval
 from app.services.retrieval import search_code
 from app.services.storage import StorageError, index_repository
 
@@ -381,6 +381,24 @@ def test_postgresql_lexical_and_hybrid_scope_ranking_and_snapshot(
                 == "repeatable read"
             )
             assert len(hybrid) == 2
+            class FakeReranker:
+                max_seq_length = 512
+                device = "cpu"
+
+                def tokenizer(self, query: str, document: str, **kwargs: object) -> dict[str, list[int]]:
+                    return {"input_ids": [1, 2, 3]}
+
+                def predict(self, pairs: list[tuple[str, str]], **kwargs: object) -> list[float]:
+                    return [float("Symbol: function get_embedding_model" in doc) for _, doc in pairs]
+
+            monkeypatch.setattr(reranking, "get_reranker_model", FakeReranker)
+            reranked = reranking.rerank_hybrid(
+                db, "get_embedding_model", 2, target, depth=20, branch_depth=3
+            )
+            assert reranked.union_size == 2
+            assert reranked.scored_candidates == 2
+            assert [chunk.repository for chunk in reranked.candidates] == [target, target]
+            assert reranked.candidates[0].symbol_name == "get_embedding_model"
             # A concurrent replacement cannot change the reader's snapshot.
             with SessionLocal() as writer:
                 writer.execute(delete(CodeChunk).where(CodeChunk.repository == target))
