@@ -40,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--mode",
-        choices=("dense", "lexical", "hybrid", "rerank"),
+        choices=("dense", "lexical", "hybrid", "rerank", "rerank_rrf_ce", "rerank_three_signal"),
         default="dense",
         help="Explicit retrieval experiment mode; dense remains the default.",
     )

@@ -15,6 +15,7 @@ from app.services.retrieval import (
     RRF_BRANCH_DEPTH,
     RRF_CONSTANT,
     RetrievedChunk,
+    _identity,
     hybrid_candidate_pool,
 )
 
@@ -39,6 +40,7 @@ class RerankResult:
     device: str
     model_revision: str | None
     model_parameters: int | None
+    signal_ranked_candidates: list[RetrievedChunk] | None = None
 
 
 def reranker_document(chunk: RetrievedChunk) -> str:
@@ -154,4 +156,87 @@ def rerank_hybrid(
     )
     return rerank_candidates(
         question, ordered, union_size=union_size, top_k=top_k, depth=depth
+    )
+
+
+def fuse_reranker_ranks(
+    result: RerankResult,
+    *,
+    top_k: int,
+    mode: str,
+    constant: int = RRF_CONSTANT,
+) -> RerankResult:
+    """Add bounded CE rank to existing ranks, without combining raw scores.
+
+    ``rrf_ce``: 1/(c + RRF rank) + 1/(c + CE rank, if scored).
+    ``three_signal``: available dense, lexical, and CE reciprocal ranks.
+    Missing branch/CE ranks contribute zero. Unscored candidates keep their
+    original branch ranks and are never assigned a fabricated CE rank.
+    """
+
+    if mode not in {"rrf_ce", "three_signal"} or constant < 1:
+        raise ValueError("Invalid signal-fusion mode or constant")
+    if not 1 <= top_k <= 20 or result.scored_candidates > 20:
+        raise ValueError("Signal fusion requires the bounded 20-candidate window")
+    scored = {_identity(chunk): chunk for chunk in result.ranked_candidates}
+    seen: set[tuple[object, ...]] = set()
+    ranked: list[RetrievedChunk] = []
+    for original in result.pre_rerank_candidates:
+        key = _identity(original)
+        if key in seen:
+            continue
+        seen.add(key)
+        ce = scored.get(key)
+        ce_rank = ce.reranker_rank if ce else None
+        if mode == "rrf_ce":
+            if original.fusion_rank is None:
+                raise ValueError("RRF rank is required for rrf_ce fusion")
+            value = 1 / (constant + original.fusion_rank)
+        else:
+            value = sum(
+                1 / (constant + rank)
+                for rank in (original.dense_rank, original.lexical_rank)
+                if rank is not None
+            )
+        if ce_rank is not None:
+            value += 1 / (constant + ce_rank)
+        ranked.append(replace(
+            original,
+            reranker_score=ce.reranker_score if ce else None,
+            reranker_rank=ce_rank,
+            reranker_input_tokens=ce.reranker_input_tokens if ce else None,
+            reranker_input_truncated=ce.reranker_input_truncated if ce else None,
+            signal_fusion_score=value,
+        ))
+    ranked.sort(key=lambda chunk: (
+        -float(chunk.signal_fusion_score),
+        chunk.fusion_rank if chunk.fusion_rank is not None else MAX_TOP_K + 1,
+        chunk.repository, chunk.file_path, chunk.start_line, chunk.end_line,
+        chunk.symbol_type, chunk.symbol_name or "", chunk.row_id or 0,
+    ))
+    ranked = [replace(chunk, signal_fusion_rank=rank)
+              for rank, chunk in enumerate(ranked, 1)]
+    return replace(result, candidates=ranked[:top_k], signal_ranked_candidates=ranked)
+
+
+def rerank_hybrid_fused(
+    db: Session,
+    question: str,
+    top_k: int,
+    repository: str,
+    *,
+    mode: str,
+    branch_depth: int = RRF_BRANCH_DEPTH,
+    rrf_constant: int = RRF_CONSTANT,
+) -> RerankResult:
+    """One scoped 50+50 snapshot, 20 scored pairs, then rank-only fusion."""
+
+    if mode not in {"rrf_ce", "three_signal"}:
+        raise ValueError("Unknown signal-fusion mode")
+    base = rerank_hybrid(
+        db, question, top_k, repository,
+        depth=20, branch_depth=branch_depth, rrf_constant=rrf_constant,
+    )
+    return fuse_reranker_ranks(
+        base, top_k=top_k, mode=mode, constant=rrf_constant
     )

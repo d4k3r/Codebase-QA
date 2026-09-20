@@ -43,6 +43,8 @@ class RetrievedChunk:
     reranker_rank: int | None = None
     reranker_input_tokens: int | None = None
     reranker_input_truncated: bool | None = None
+    signal_fusion_score: float | None = None
+    signal_fusion_rank: int | None = None
 
 
 def search_code(

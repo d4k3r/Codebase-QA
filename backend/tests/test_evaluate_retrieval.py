@@ -145,7 +145,7 @@ def test_blank_evaluation_scope_is_rejected_before_index_access(
         )
 
 
-@pytest.mark.parametrize("mode", ["dense", "lexical", "hybrid", "rerank"])
+@pytest.mark.parametrize("mode", ["dense", "lexical", "hybrid", "rerank", "rerank_rrf_ce", "rerank_three_signal"])
 def test_evaluator_reports_retrieved_evidence_excluded_by_real_context_selection(
     monkeypatch: pytest.MonkeyPatch,
     mode: str,
@@ -217,18 +217,26 @@ def test_evaluator_reports_retrieved_evidence_excluded_by_real_context_selection
             evaluation, "search_code",
             lambda *args, **kwargs: pytest.fail("non-dense mode must not use dense-only dispatch"),
         )
-        if mode == "rerank":
+        if mode in {"rerank", "rerank_rrf_ce", "rerank_three_signal"}:
             def fake_rerank(*args: object, **kwargs: object) -> SimpleNamespace:
-                assert kwargs["depth"] == 20
+                if mode == "rerank":
+                    assert kwargs["depth"] == 20
+                else:
+                    assert kwargs["mode"] == ("rrf_ce" if mode == "rerank_rrf_ce" else "three_signal")
                 return SimpleNamespace(
                     candidates=candidates, union_size=2, scored_candidates=2,
                     pre_rerank_candidates=candidates,
                     ranked_candidates=candidates,
+                    signal_ranked_candidates=candidates if mode != "rerank" else None,
                     truncated_inputs=0, maximum_input_tokens=12,
                     model_input_limit=512, device="cpu", model_revision="fixture",
                     model_parameters=22,
                 )
-            monkeypatch.setattr(evaluation, "rerank_hybrid", fake_rerank)
+            monkeypatch.setattr(
+                evaluation,
+                "rerank_hybrid" if mode == "rerank" else "rerank_hybrid_fused",
+                fake_rerank,
+            )
         else:
             def retrieve(*args: object, **kwargs: object) -> list[RetrievedChunk]:
                 assert kwargs["mode"] == mode
@@ -258,7 +266,7 @@ def test_evaluator_reports_retrieved_evidence_excluded_by_real_context_selection
     assert case_report["context_evidence_ids"] == []
     assert case_report["selection_losses"] == ["large-evidence"]
     assert report["metrics"]["selection_loss_rate"]["value"] == 1
-    if mode == "rerank":
+    if mode in {"rerank", "rerank_rrf_ce", "rerank_three_signal"}:
         assert case_report["candidate_union_size"] == 2
         assert case_report["reranked_candidates"] == 2
         assert "large-evidence" in case_report["rerank_evidence_ranks"]
@@ -302,7 +310,7 @@ class ReadOnlySession:
         pytest.fail("read-only evaluator must not commit")
 
 
-@pytest.mark.parametrize("mode", ["dense", "lexical", "hybrid", "rerank"])
+@pytest.mark.parametrize("mode", ["dense", "lexical", "hybrid", "rerank", "rerank_rrf_ce", "rerank_three_signal"])
 def test_default_evaluator_sets_read_only_transaction_and_makes_no_provider_call(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

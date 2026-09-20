@@ -24,6 +24,7 @@ from app.services.reranking import (
     RERANKER_REVISION,
     RERANK_DEPTHS,
     rerank_hybrid,
+    rerank_hybrid_fused,
 )
 from app.services.retrieval import (
     MAX_TOP_K,
@@ -37,7 +38,9 @@ from app.services.retrieval import (
 
 METRIC_DEPTHS = (1, 3, 5, 10)
 DATASET_FORMAT_VERSION = 1
-EvaluationMode = Literal["dense", "lexical", "hybrid", "rerank"]
+EvaluationMode = Literal[
+    "dense", "lexical", "hybrid", "rerank", "rerank_rrf_ce", "rerank_three_signal"
+]
 
 
 class EvaluationError(RuntimeError):
@@ -552,6 +555,8 @@ def evaluate_dataset(
     token_diagnostics, model_metadata = collect_embedding_diagnostics(indexed_chunks)
     if mode == "rerank" and rerank_depth not in RERANK_DEPTHS:
         raise EvaluationError("rerank_depth must be 20 or 50")
+    if mode in {"rerank_rrf_ce", "rerank_three_signal"} and rerank_depth != 20:
+        raise EvaluationError("Signal-fusion experiments require rerank_depth=20")
 
     outcomes: list[CaseOutcome] = []
     case_reports: list[dict[str, object]] = []
@@ -567,6 +572,14 @@ def evaluate_dataset(
                 db, case.question, candidate_depth, scope,
                 depth=rerank_depth, branch_depth=branch_depth,
                 rrf_constant=rrf_constant,
+            )
+            candidates = rerank_result.candidates
+            rerank_results.append(rerank_result)
+        elif mode in {"rerank_rrf_ce", "rerank_three_signal"}:
+            rerank_result = rerank_hybrid_fused(
+                db, case.question, candidate_depth, scope,
+                mode="rrf_ce" if mode == "rerank_rrf_ce" else "three_signal",
+                branch_depth=branch_depth, rrf_constant=rrf_constant,
             )
             candidates = rerank_result.candidates
             rerank_results.append(rerank_result)
@@ -612,10 +625,14 @@ def evaluate_dataset(
                     )
                 pre_chunk = matching_chunk(rerank_result.pre_rerank_candidates)
                 scored_chunk = matching_chunk(rerank_result.ranked_candidates)
+                fused_chunk = matching_chunk(rerank_result.signal_ranked_candidates or [])
                 evidence_ranks[evidence_id] = {
                     "rrf_rank": pre_chunk.fusion_rank if pre_chunk else None,
                     "reranker_rank": (
                         scored_chunk.reranker_rank if scored_chunk else None
+                    ),
+                    "signal_fusion_rank": (
+                        fused_chunk.signal_fusion_rank if fused_chunk else None
                     ),
                     "reranker_input_tokens": (
                         scored_chunk.reranker_input_tokens if scored_chunk else None
@@ -672,6 +689,8 @@ def evaluate_dataset(
                         "reranker_rank": candidate.reranker_rank,
                         "reranker_input_tokens": candidate.reranker_input_tokens,
                         "reranker_input_truncated": candidate.reranker_input_truncated,
+                        "signal_fusion_score": candidate.signal_fusion_score,
+                        "signal_fusion_rank": candidate.signal_fusion_rank,
                         "matched_evidence_ids": sorted(candidate_matches[rank - 1]),
                         "embedding_input": token_diagnostics.get(
                             _source_identifier(candidate),
@@ -714,16 +733,16 @@ def evaluate_dataset(
             "chunking_identifier": CHUNKING_IDENTIFIER,
             "candidate_depth": candidate_depth,
             "retrieval_mode": mode,
-            "rrf_constant": rrf_constant if mode in {"hybrid", "rerank"} else None,
-            "rrf_branch_depth": branch_depth if mode in {"hybrid", "rerank"} else None,
-            "reranker_model": RERANKER_MODEL if mode == "rerank" else None,
+            "rrf_constant": rrf_constant if mode in {"hybrid", "rerank", "rerank_rrf_ce", "rerank_three_signal"} else None,
+            "rrf_branch_depth": branch_depth if mode in {"hybrid", "rerank", "rerank_rrf_ce", "rerank_three_signal"} else None,
+            "reranker_model": RERANKER_MODEL if mode in {"rerank", "rerank_rrf_ce", "rerank_three_signal"} else None,
             "reranker_requested_revision": (
-                RERANKER_REVISION if mode == "rerank" else None
+                RERANKER_REVISION if mode in {"rerank", "rerank_rrf_ce", "rerank_three_signal"} else None
             ),
             "reranker_revision": (
                 rerank_results[0].model_revision if rerank_results else None
             ),
-            "reranker_depth": rerank_depth if mode == "rerank" else None,
+            "reranker_depth": rerank_depth if mode in {"rerank", "rerank_rrf_ce", "rerank_three_signal"} else None,
             "reranker_device": (
                 rerank_results[0].device if rerank_results else None
             ),
